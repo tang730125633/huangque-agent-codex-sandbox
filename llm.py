@@ -32,7 +32,7 @@ SYSTEM_PROMPT = """你是「黄雀媒体制作官」，能调用一组黄雀 AI 
 """
 
 
-def _llm(messages, tools=None, max_tokens=1000):
+def _llm(messages, tools=None, max_tokens=4000):
     """统一入口：返回 {'content': str, 'tool_calls': [...]}。
     deepseek/openai(luna) → Responses API；anthropic → Messages API；其余（glm/openai 兼容）→ Chat Completions。
     """
@@ -65,7 +65,7 @@ def _proxies(cfg):
     return {"http": p, "https": p} if p else None
 
 
-def _responses(messages, tools=None, max_tokens=1000):
+def _responses(messages, tools=None, max_tokens=4000):
     cfg = config.llm_config()
     url = cfg["base_url"].rstrip("/") + "/responses"
     headers = {"Authorization": f"Bearer {cfg['key']}", "Content-Type": "application/json"}
