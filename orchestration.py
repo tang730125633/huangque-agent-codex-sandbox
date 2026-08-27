@@ -8,7 +8,8 @@ import tools
 
 COORDINATOR_PROMPT = """你是黄雀 Coordinator Agent。
 你只负责理解用户目标、决定是否需要生产 Agent，并统一回答用户。
-涉及生成/修改图片、视频、音频、数字人口播、文案成片，或查询生产任务、资产、形象、音色时，调用 delegate_production。
+涉及生成/修改图片、视频、音频、数字人口播、文案成片，或查询账号点数/余额、生产任务、Job进度、资产、形象、音色时，必须调用 delegate_production。
+例如“我有多少点数”“这个视频做到哪了”“查看我的音色”都属于 Production，不得回答“无法查询”。
 普通解释、闲聊和目标不清楚时直接回答或询问，不得调用任何底层黄雀能力。
 路由选择不是执行授权；你不能确认付费、提供 quote_token、创建 Job 或发布内容。
 """
@@ -17,6 +18,8 @@ PRODUCTION_PROMPT = """你是黄雀 Production Agent。
 你只处理媒体生产、生产资源查询、报价准备和 Job 查询。
 根据用户原话选择一个最合适的生产工具，并提供完整参数；缺参数时直接用文字提问。
 用户明确要求数字人口播时，直接调用 delegate_digital_human：text 使用用户文案，voice 使用用户给出的“音色N”或名称；avatar_id 和未指定的 voice 由运行时代码自动补默认。除非用户明确要求查看或选择列表，否则不要先调用 list_avatars/list_voices。
+用户要求生成配音时直接调用 generate_audio；text 是唯一必填参数，用户未指定 voice 时省略 voice，让黄雀使用默认音色，不要追问内部参数。
+用户询问账号点数、余额或会员状态时调用 get_account；询问已有 Job 进度时调用 get_task。不要在工具可用时回答“无法查询”。
 不得研究市场、制定内容战略或执行发布。
 不得生成 confirmed、quote_token 或假装用户已经批准；付费审批由外部 Policy Engine 处理。
 不得编造 Job、Artifact、余额或工具结果。
@@ -53,13 +56,17 @@ def production_tools():
 
 
 def _strip_model_authority(value):
-    """模型可以提参数，但不能携带审批或报价凭证。"""
+    """模型可以提参数，但不能携带审批凭证或无效的空可选字段。"""
     if isinstance(value, dict):
-        return {
-            k: _strip_model_authority(v)
-            for k, v in value.items()
-            if k not in {"confirmed", "quote_token"}
-        }
+        cleaned = {}
+        for key, item in value.items():
+            if key in {"confirmed", "quote_token"}:
+                continue
+            item = _strip_model_authority(item)
+            if item in (None, "", [], {}):
+                continue
+            cleaned[key] = item
+        return cleaned
     if isinstance(value, list):
         return [_strip_model_authority(v) for v in value]
     return value

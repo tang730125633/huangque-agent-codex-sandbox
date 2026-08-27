@@ -48,6 +48,21 @@ class OrchestrationTest(unittest.TestCase):
         subagents.hq.run = fake_hq
         return calls
 
+    def test_prompts_and_tools_cover_account_and_job_queries(self):
+        self.assertIn("账号点数/余额", orchestration.COORDINATOR_PROMPT)
+        self.assertIn("text 是唯一必填参数", orchestration.PRODUCTION_PROMPT)
+        self.assertIn("get_account", orchestration.PRODUCTION_TOOL_NAMES)
+        self.assertIn("get_task", orchestration.PRODUCTION_TOOL_NAMES)
+
+    def test_policy_removes_empty_optional_fields(self):
+        allowed, reason, decision = orchestration.PolicyEngine.production({
+            "type": "tool",
+            "tool": "generate_audio",
+            "params": {"text": "欢迎来到黄雀", "voice": "", "confirmed": True},
+        })
+        self.assertTrue(allowed, reason)
+        self.assertEqual(decision["params"], {"text": "欢迎来到黄雀"})
+
     def test_coordinator_delegates_to_independent_production_quote(self):
         calls = self.install_fake_hq()
         coordinator = StubAgent({

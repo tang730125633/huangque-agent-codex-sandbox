@@ -93,6 +93,13 @@ window.fetch = function(url, opts={}) {
   return _rawFetch(url, opts);
 };
 async function checkAuth() {
+  try {
+    const info = await _rawFetch('/info').then(r => r.json());
+    if (!info.auth_required) {
+      document.getElementById('authOverlay').style.display = 'none';
+      return true;
+    }
+  } catch(e) {}
   if (!accessToken) { document.getElementById('authOverlay').style.display = 'flex'; return; }
   try {
     const r = await _rawFetch('/status', {headers:{'Authorization':'Bearer '+accessToken}});

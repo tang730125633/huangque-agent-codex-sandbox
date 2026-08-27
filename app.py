@@ -87,6 +87,7 @@ def index():
         "version": "0.2.0",
         "brain": config.current_model(),
         "model": config.llm_config()["model"],
+        "auth_required": bool(config.ACCESS_TOKEN),
         "tool_count": len(__import__("tools").TOOLS),
         "endpoints": ["/agent", "/agent/execute", "/chat", "/quote", "/execute", "/task/{id}", "/status"],
     }
