@@ -310,7 +310,8 @@ class DigitalHumanAgent:
                         status="needs_approval", summary="已报价",
                         quote={"quote_token": rr["quote_token"], "cost": rr.get("cost"),
                                "points": rr.get("points"), "batch": 1})
-            return SpecialistResult(status="failed", summary="报价失败", retryable=True)
+            msg = res.get("message") or res.get("error") or "未知错误"
+            return SpecialistResult(status="failed", summary=f"报价失败：{msg}", retryable=True)
         res = hq.run("digital-ip-text-generate", params, confirm=True, quote_token=quote_token)
         if "result" in res and res.get("result"):
             jid = res["result"].get("job_id")

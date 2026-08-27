@@ -56,6 +56,31 @@ def _default_voice():
     return ""
 
 
+def _resolve_avatar(avatar):
+    """把真实 avatar_id 或“形象N”序号解析成当前账号的 ready avatar_id。"""
+    try:
+        result = hq.run("video-avatars", {}, confirm=False)
+        items = (result.get("result") or {}).get("items") or []
+        ready = [item for item in items if item.get("status") == "ready"]
+    except Exception:
+        return None
+    if not ready:
+        return None
+    if avatar in (None, ""):
+        return ready[0].get("id")
+    text = str(avatar).strip()
+    match = re.search(r"形象\s*(\d+)|第\s*(\d+)\s*个", text)
+    number = int((match.group(1) or match.group(2)) if match else text) if (match or text.isdigit()) else None
+    if number is None:
+        return None
+    for item in ready:
+        if item.get("id") == number:
+            return number
+    if 1 <= number <= len(ready):
+        return ready[number - 1].get("id")
+    return None
+
+
 def _voice_global_index(slot_id, voice_key):
     """返回音色在完整音色列表(list_voices)里的全局序号(1-based)。
     用于让「音色槽位」的序号与「查看音色」一致，避免用户说「音色2」时被错解。"""
@@ -91,6 +116,7 @@ def _find_prev_voice_text(history):
             continue
         # 只跳过明确的音色控制/确认短句；不能误伤“换季肌肤……”这类真实文案。
         if (_extract_voice_number(content) is not None or
+                re.search(r"(?:查看|查询|列出|有哪些|多少).*(?:形象|音色|账户|点数|任务|资产)", content) or
                 re.search(r"^(?:换(?:个|一个|成)?(?:音色|声音)|确认(?:执行)?|开始|ok|yes)",
                           content, re.I)):
             continue
@@ -276,15 +302,11 @@ def run_turn(user_message, history=None, images=None, image_data_urls=None,
     # 委派 delegate_digital_human 时，自动补默认形象(avatar_id)和规范化音色(voice)
     if tool_name == "delegate_digital_human":
         p = dict(params.get("params") or {})
-        if not p.get("avatar_id"):
-            try:
-                av = hq.run("video-avatars", {}, confirm=False)
-                av_items = (av.get("result") or {}).get("items") or []
-                ready = [a for a in av_items if a.get("status") == "ready"]
-                if ready:
-                    p["avatar_id"] = ready[0].get("id")
-            except Exception:
-                pass
+        p["avatar_id"] = _resolve_avatar(p.get("avatar_id"))
+        text = str(p.get("text") or "").strip()
+        if (text and text not in (user_message or "") and
+                re.search(r"(?:查看|查询|列出|有哪些|多少).*(?:形象|音色|账户|点数|任务|资产)", text)):
+            p.pop("text", None)
         # voice 规范化：LLM 可能填名字或「音色N」，解析成 voice_key
         voice_resolved = _resolve_voice(p.get("voice"))
         if not voice_resolved:

@@ -55,6 +55,29 @@ class VoiceChangeTest(unittest.TestCase):
             "avatar_id": 525,
         })
 
+    def test_resource_queries_are_not_reused_as_spoken_copy(self):
+        history = [
+            {"role": "user", "content": "欢迎来到黄雀"},
+            {"role": "user", "content": "查看一下我的形象"},
+            {"role": "user", "content": "查看我的克隆音色"},
+        ]
+        self.assertEqual(agent._find_prev_voice_text(history), "欢迎来到黄雀")
+
+    def test_avatar_number_resolves_to_ready_list_item(self):
+        original = agent.hq.run
+        try:
+            agent.hq.run = lambda capability, params, confirm=False, quote_token=None: {
+                "result": {"items": [
+                    {"id": 529, "status": "ready"},
+                    {"id": 525, "status": "ready"},
+                ]}
+            }
+            self.assertEqual(agent._resolve_avatar(1), 529)
+            self.assertEqual(agent._resolve_avatar("形象2"), 525)
+            self.assertEqual(agent._resolve_avatar(525), 525)
+        finally:
+            agent.hq.run = original
+
 
 if __name__ == "__main__":
     unittest.main()
