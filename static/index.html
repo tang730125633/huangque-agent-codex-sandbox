@@ -35,6 +35,7 @@
   .btn.confirm { background:var(--accent); color:#1a1a1a; }
   .btn:disabled { opacity:.5; cursor:not-allowed; }
   .result-img { max-width:100%; border-radius:8px; margin-top:8px; }
+  .result-video { max-height:60vh; max-width:100%; border-radius:8px; margin:8px auto 0; display:block; }
   .result-link { color:#6cb2ff; word-break:break-all; }
   .spin { display:inline-block; animation:sp 1s linear infinite; }
   @keyframes sp { to { transform:rotate(360deg); } }
@@ -462,7 +463,7 @@ function renderResult(result) {
     parts.push(`<img class="result-img" src="${imgSrc(result.url)}">`);
   }
   if (result.urls) result.urls.forEach(u => parts.push(`<img class="result-img" src="${imgSrc(u)}">`));
-  if (result.video_url) parts.push(`<video class="result-img" controls src="${result.video_url}"></video>`);
+  if (result.video_url) parts.push(`<video class="result-video" controls src="${result.video_url}"></video>`);
   if (result.points !== undefined) parts.push(`<div>剩余点数：<b>${result.points}</b></div>`);
   if (!parts.length) return '<pre style="white-space:pre-wrap;font-size:12px;color:var(--muted)">' + JSON.stringify(result, null, 2).slice(0, 600) + '</pre>';
   return parts.join('');
