@@ -9,6 +9,7 @@
 import json
 import llm
 import tools
+import hq
 
 # 需要结构化展示（不走自然语言总结）的工具——结果含图片/列表，直接给前端渲染
 DISPLAY_TOOLS = {"list_avatars", "list_voices", "list_assets", "list_voice_slots"}
@@ -165,6 +166,28 @@ def run_turn(user_message, history=None, images=None, image_data_urls=None, pend
             p["image_url"] = image_data_urls[0]
         elif intent == "图生图" and images and not p.get("image_upload_id"):
             p["image_upload_id"] = images[0]
+        params["params"] = p
+
+    # 委派 delegate_digital_human 时，自动补默认形象(avatar_id)和默认音色(voice)
+    if tool_name == "delegate_digital_human":
+        p = dict(params.get("params") or {})
+        if not p.get("avatar_id"):
+            try:
+                av = hq.run("video-avatars", {}, confirm=False)
+                av_items = (av.get("result") or {}).get("items") or []
+                ready = [a for a in av_items if a.get("status") == "ready"]
+                if ready:
+                    p["avatar_id"] = ready[0].get("id")
+            except Exception:
+                pass
+        if not p.get("voice"):
+            try:
+                vs = hq.run("voices", {}, confirm=False)
+                v_items = (vs.get("result") or {}).get("items") or []
+                if v_items:
+                    p["voice"] = v_items[0].get("voice_key")
+            except Exception:
+                pass
         params["params"] = p
 
     # 多图拆分：generate_image 的 count>1 时，黄雀引擎2 不支持多图（400），拆成多次单张
