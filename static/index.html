@@ -412,8 +412,8 @@ function renderDisplay(tool, result) {
       const au = s.preview_url || '';
       const audio = au ? `<audio controls preload="none" src="${imgSrc(au)}" style="height:32px;width:220px;vertical-align:middle"></audio>` : '';
       const name = s.voice_name || '（空槽位）';
-      const st = s.status === 'ready' ? '✅ 可用' : (s.status === 'training' ? '⏳ 训练中' : (s.status || ''));
-      return `<div style="padding:6px 0;border-bottom:1px solid var(--line)">${audio}<div style="margin-top:4px">🎙 ${name} <span style="color:var(--muted);font-size:12px">${st}</span></div></div>`;
+      const st = s.status === 'ready' ? '<span style="color:#2bd576">✅ 可用</span>' : (s.status === 'training' ? '<span style="color:#e7b24c">⏳ 训练中</span>' : (s.status === 'failed' ? '<span style="color:#f4708a">❌ 失败（样音太短，请重新录 10-60 秒）</span>' : (s.status || '')));
+      return `<div style="padding:6px 0;border-bottom:1px solid var(--line)">${audio}<div style="margin-top:4px">🎙 ${name} ${st}</div></div>`;
     }).join('');
     return `<div style="font-weight:600;margin-bottom:8px">🔊 声音克隆槽位（${items.length}，点击播放试听）：</div>${list}`;
   }
