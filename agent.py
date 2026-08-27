@@ -213,7 +213,8 @@ def _next_provider(pending_quote):
     return _provider_after(inner.get("provider", ""))
 
 
-def run_turn(user_message, history=None, images=None, image_data_urls=None, pending_quote=None):
+def run_turn(user_message, history=None, images=None, image_data_urls=None,
+             pending_quote=None, decision=None):
     """一轮对话。返回结构：
     - {'type':'text', 'text':...}            普通回复
     - {'type':'quote', 'tool':..., 'params':..., 'cost':..., 'points':..., 'quote_token':..., 'pending_quote':..., 'explanation':...}  付费工具报价
@@ -232,7 +233,8 @@ def run_turn(user_message, history=None, images=None, image_data_urls=None, pend
         # 不暴露 upload_id/base64 等技术细节，只告诉 LLM「用户附了图」
         user_message = (user_message or "") + "\n[上下文：用户已附一张图片。若要用这张图生成新图，委派 delegate_image 的「图生图」；若要查看/分析这张图，委派 delegate_image 的「看图」。图片数据系统会自动处理，你无需传递任何 ID。]"
 
-    r = llm.chat(user_message, history)
+    # decision 由独立专业 Agent 产生时，复用下面同一套参数清洗、报价与结果处理。
+    r = decision if decision is not None else llm.chat(user_message, history)
 
     if r["type"] == "text":
         # 换音色兜底：用户说「音色N/第N个/N号音色」，LLM 却没委派时，强制换音色重新生成上一轮文案

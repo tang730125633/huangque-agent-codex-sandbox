@@ -40,13 +40,14 @@ MODELS = {
         "base_url": OPENAI_BASE_URL,
         "model": "gpt-5.6-luna",
         "proxy": OPENAI_PROXY,  # api.openai.com 需走代理
+        "reasoning_effort": os.getenv("OPENAI_REASONING_EFFORT", "low"),
     },
 }
 
 # 当前模型（可运行时切换）
-_CURRENT_MODEL = os.getenv("LLM_PROVIDER", "deepseek")
+_CURRENT_MODEL = os.getenv("LLM_PROVIDER", "luna")
 if _CURRENT_MODEL not in MODELS:
-    _CURRENT_MODEL = "deepseek"
+    _CURRENT_MODEL = "luna"
 
 
 # —— 黄雀执行层 ——

@@ -83,6 +83,8 @@ def _responses(messages, tools=None, max_tokens=4000):
         "input": input_msgs,
         "max_output_tokens": max_tokens,
     }
+    if cfg.get("provider") == "openai" and cfg.get("reasoning_effort"):
+        body["reasoning"] = {"effort": cfg["reasoning_effort"]}
     if tools:
         # chat 格式 tools → responses 格式（去掉 function 包裹）
         body["tools"] = [
@@ -148,15 +150,15 @@ def _anthropic_messages(messages, tools=None, max_tokens=1000):
     return {"content": content, "tool_calls": tool_calls}
 
 
-def chat(user_message, history=None):
+def chat(user_message, history=None, system_prompt=None, tool_defs=None, max_tokens=1000):
     """一轮对话：返回 {'type':'text','text':...} 或 {'type':'tool','tool':...,'params':...}。"""
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages = [{"role": "system", "content": system_prompt or SYSTEM_PROMPT}]
     for h in (history or []):
         messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
     messages.append({"role": "user", "content": user_message})
 
     try:
-        msg = _llm(messages, tools=to_openai_tools())
+        msg = _llm(messages, tools=to_openai_tools(tool_defs), max_tokens=max_tokens)
     except Exception as e:
         return {"type": "error", "message": f"大脑模型调用失败：{str(e)[:200]}"}
 
@@ -186,11 +188,13 @@ def summarize(user_question, tool_name, result, history=None):
         return f"（结果获取成功，但总结失败：{str(e)[:100]}）"
 
 
-def to_openai_tools():
+def to_openai_tools(tool_defs=None):
     """把工具注册表转成 Chat Completions 的 tools 格式（Responses 内部再转换）。"""
-    import tools as T
+    if tool_defs is None:
+        import tools as T
+        tool_defs = T.TOOLS
     out = []
-    for t in T.TOOLS:
+    for t in tool_defs:
         out.append({
             "type": "function",
             "function": {"name": t["name"], "description": t["description"], "parameters": t["parameters"]},

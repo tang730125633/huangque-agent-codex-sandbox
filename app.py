@@ -21,6 +21,7 @@ import agent
 import session
 import web
 import subagents
+import orchestration
 
 app = FastAPI(title="Huangque Agent", version="0.4.0")
 
@@ -286,7 +287,8 @@ def agent_turn(req: ChatRequest):
     sid = req.session_id or session.new_id()
     history = req.history if req.history is not None else session.get(sid)
     pending_quote = session.get_pending_quote(sid)
-    result = agent.run_turn(req.message, history, req.images, req.image_data_urls, pending_quote)
+    result = orchestration.run_turn(
+        req.message, history, req.images, req.image_data_urls, pending_quote)
     # 把本轮对话写入 session（持久化）
     user_content = req.message
     if req.images:

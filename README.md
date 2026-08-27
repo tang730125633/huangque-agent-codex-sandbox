@@ -1,6 +1,6 @@
 # 黄雀 Agent（独立服务）
 
-一个**独立、可部署**的黄雀内容生产 Agent 服务。大脑用 DeepSeek / GLM 理解自然语言需求并路由到黄雀能力，执行层调 `hq` CLI（报价 → 确认 → 轮询）。不依赖 OpenClaw，可本机跑、可上服务器、可加网页前端。
+一个**独立、可部署**的黄雀内容生产 Agent 服务。大脑默认用 OpenAI GPT-5.6 Luna 理解自然语言需求并路由到黄雀能力，执行层调 `hq` CLI（报价 → 确认 → 轮询）。DeepSeek / GLM 保留为显式备用；不依赖 OpenClaw，可本机跑、可上服务器、可加网页前端。
 
 ## 架构
 
@@ -8,11 +8,20 @@
 用户（HTTP API / 未来网页）
    ↓
 app.py（FastAPI 服务）
-   ├── llm.py  大脑：DeepSeek/GLM → 把需求翻译成 {capability, params}
-   └── hq.py   执行：hq CLI → capabilities/describe/run/quote/task
+   ↓
+orchestration.py
+   ├── Coordinator Agent（GPT-5.6 Luna，只能 delegate_production）
+   ├── Production Agent（GPT-5.6 Luna，独立 Prompt + 生产工具白名单）
+   └── Policy Engine（拒绝越权工具，剥离模型伪造的确认与 quote_token）
+   ↓
+agent.py / subagents.py（参数清洗、报价、确认、结构化结果）
+   ↓
+hq.py（hq CLI → capabilities/describe/run/quote/task）
    ↓
 黄雀后端 huangquechuanmei.com（真正出图/出视频）
 ```
+
+`/agent` 已使用这条最小纵向切片。用户确认付费时不再调用两个模型，而是使用会话中保存的原始 `quote_token` 直接恢复执行。
 
 ## 安装
 
@@ -26,8 +35,11 @@ pip install -r requirements.txt
 ## 配置（.env，600 权限，勿提交）
 
 ```
-LLM_PROVIDER=deepseek        # deepseek | glm
-DEEPSEEK_API_KEY=sk-xxx
+LLM_PROVIDER=luna            # luna（默认）| deepseek | glm
+OPENAI_API_KEY=<从安全凭据环境注入>
+OPENAI_REASONING_EFFORT=low  # none | low | medium | high | xhigh | max
+OPENAI_PROXY=                # 网络可直连时留空
+# DEEPSEEK_API_KEY=<仅在手动切换 deepseek 时配置>
 GLM_API_KEY=xxx
 HQ_BIN=hq
 HOST=127.0.0.1
