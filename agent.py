@@ -84,11 +84,14 @@ def clean_desc(desc):
 
 
 def _is_approval(text):
-    """判断用户消息是否表达「确认执行」（配合 pending_quote 使用）。"""
+    """判断用户消息是否表达「确认执行」。排除「换/改/重新」等修改意图，避免误判。"""
     t = (text or "").strip().lower()
     if not t:
         return False
-    for kw in ("确认", "开始", "好的", "可以", "行", "生成吧", "做吧", "ok", "yes", "好"):
+    # 修改/否定意图：明确不是确认（如「可以换个音色吗」里的“可以”不能当确认）
+    if any(kw in t for kw in ("换", "改", "重新", "不要", "别的", "另一个", "取消", "先别")):
+        return False
+    for kw in ("确认", "开始", "生成吧", "做吧", "执行", "ok", "yes"):
         if kw in t:
             return True
     return False
