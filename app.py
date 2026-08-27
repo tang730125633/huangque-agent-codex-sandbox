@@ -13,6 +13,7 @@ from typing import Optional, Dict, Any, List
 import os
 import tempfile
 import base64
+import subprocess
 import config
 import llm
 import hq
@@ -129,16 +130,30 @@ async def upload_avatar(file: UploadFile = File(...)):
 
 @app.post("/upload/voice")
 async def upload_voice(slot_id: str, file: UploadFile = File(...)):
-    """上传样音克隆声音（走网页端 token）。"""
-    suffix = os.path.splitext(file.filename or "")[1].lower()
-    fmt_map = {".mp3": "mp3", ".wav": "wav", ".m4a": "m4a", ".aac": "aac", ".ogg": "ogg"}
-    if suffix not in fmt_map:
-        raise HTTPException(400, "仅支持 mp3/wav/m4a/aac/ogg")
+    """上传样音克隆声音。任意格式（含录音的 webm/mp4），后端 ffmpeg 转 16k 单声道 wav 后提交 clone-vip。"""
+    suffix = os.path.splitext(file.filename or "")[1].lower() or ".webm"
     data = await file.read()
+    tmp_in = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+    tmp_in.write(data)
+    tmp_in.close()
+    tmp_out = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    tmp_out.close()
     try:
-        result = web.clone_voice(slot_id, base64.b64encode(data).decode(), fmt_map[suffix])
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", tmp_in.name, "-ar", "16000", "-ac", "1",
+             "-c:a", "pcm_s16le", tmp_out.name],
+            capture_output=True, timeout=60, check=True,
+        )
+        with open(tmp_out.name, "rb") as f:
+            wav_data = f.read()
+        result = web.clone_voice(slot_id, base64.b64encode(wav_data).decode(), "wav")
+    except subprocess.CalledProcessError as e:
+        raise HTTPException(400, "音频转换失败，请确认是有效的音频文件")
     except Exception as e:
         raise HTTPException(400, str(e)[:200])
+    finally:
+        os.unlink(tmp_in.name)
+        os.unlink(tmp_out.name)
     return {"ok": True, "voice": result.get("voice", result)}
 
 

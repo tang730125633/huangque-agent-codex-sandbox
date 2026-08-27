@@ -72,6 +72,7 @@
   <div class="input-row">
     <button id="upload" title="添加图片附件（跟文字一起发送）">🖼</button>
     <button id="uploadVoice" title="上传音频（克隆声音/口播素材）">🎵</button>
+    <button id="recordVoice" title="实时录音（克隆声音）">🎙</button>
     <textarea id="input" rows="1" placeholder="说人话，例如：生成一张橘猫晒太阳的图片 / 我账号还有多少点数"></textarea>
     <button id="send">发送</button>
     <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
@@ -192,11 +193,16 @@ const voiceFileInput = document.getElementById('voiceFileInput');
 cloneVoiceBtn.onclick = () => voiceFileInput.click();
 const uploadVoiceBtn = document.getElementById('uploadVoice');
 if (uploadVoiceBtn) uploadVoiceBtn.onclick = () => voiceFileInput.click();
-voiceFileInput.onchange = async () => {
+voiceFileInput.onchange = () => {
   const f = voiceFileInput.files[0];
   if (!f) return;
   voiceFileInput.value = '';
-  addMsg('🎤 上传样音克隆声音：' + f.name, 'user');
+  cloneVoiceWithFile(f);
+};
+
+// 克隆声音：选槽位 → 上传样音 → clone-vip
+async function cloneVoiceWithFile(f, label) {
+  addMsg('🎤 ' + (label || ('上传样音克隆声音：' + f.name)), 'user');
   const card = addMsg('正在准备… ⏳', 'agent');
   let slotId = null;
   try {
@@ -213,11 +219,55 @@ voiceFileInput.onchange = async () => {
     const r = await fetch('/upload/voice?slot_id=' + encodeURIComponent(slotId), { method:'POST', body: fd }).then(r=>r.json());
     if (r.ok) {
       const v = r.voice || {};
-      card.innerHTML = '✅ 声音克隆已提交（状态：' + (v.status || 'training') + '）。训练完成后可说「查看音色」确认。';
+      card.innerHTML = '✅ 声音克隆已提交（状态：' + (v.status || 'training') + '）。训练完成后可说「查看我的声音克隆槽位」试听。';
     } else {
       card.innerHTML = '克隆失败：' + (r.detail || r.message || '未知错误');
     }
   } catch(e) { card.innerHTML = '克隆失败：' + e.message; }
+}
+
+// —— 实时录音克隆 ——
+const recordVoiceBtn = document.getElementById('recordVoice');
+let recorder = null, recordStream = null, recordChunks = [], recordTimer = null, recordSec = 0;
+function fmtSec(s){ const m=Math.floor(s/60), r=s%60; return m+':'+(r<10?'0':'')+r; }
+function stopRecordStream(){
+  if(recordTimer){ clearInterval(recordTimer); recordTimer=null; }
+  if(recordStream){ try{ recordStream.getTracks().forEach(t=>t.stop()); }catch(e){} recordStream=null; }
+}
+function pickRecordMime(){
+  const cands=['audio/mp4','audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus'];
+  for(const m of cands){ try{ if(window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) return m; }catch(e){} }
+  return '';
+}
+if (recordVoiceBtn) recordVoiceBtn.onclick = () => {
+  if(recorder && recorder.state==='recording'){ try{ recorder.stop(); }catch(e){} return; }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    addMsg('当前浏览器不支持麦克风录音，请改用 🎵 上传音频。','agent'); return;
+  }
+  recordVoiceBtn.textContent = '⏹'; recordVoiceBtn.style.background='rgba(244,112,138,.25)';
+  navigator.mediaDevices.getUserMedia({audio:true}).then(stream => {
+    recordStream = stream;
+    const mime = pickRecordMime();
+    recorder = new MediaRecorder(stream, mime?{mimeType:mime}:undefined);
+    recordChunks = [];
+    recorder.ondataavailable = e => { if(e.data && e.data.size) recordChunks.push(e.data); };
+    recorder.onstop = () => {
+      stopRecordStream();
+      const type = (recorder && recorder.mimeType) || 'audio/webm';
+      const blob = new Blob(recordChunks, {type});
+      const ext = type.indexOf('mp4')>=0 ? 'm4a' : (type.indexOf('ogg')>=0 ? 'ogg' : 'webm');
+      const f = new File([blob], '录音-'+Date.now()+'.'+ext, {type});
+      recordVoiceBtn.textContent = '🎙'; recordVoiceBtn.style.background='';
+      recorder = null;
+      cloneVoiceWithFile(f, '实时录音克隆声音（'+fmtSec(recordSec)+'）');
+    };
+    recorder.start();
+    recordSec = 0;
+    recordTimer = setInterval(()=>{ recordSec++; recordVoiceBtn.title='录音中 '+fmtSec(recordSec); }, 1000);
+  }).catch(e => {
+    recordVoiceBtn.textContent = '🎙'; recordVoiceBtn.style.background='';
+    addMsg('无法访问麦克风：'+(e&&e.message?e.message:'权限被拒绝'), 'agent');
+  });
 };
 
 function fileToDataUrl(f) {
