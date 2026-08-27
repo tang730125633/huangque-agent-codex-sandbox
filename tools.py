@@ -137,6 +137,24 @@ TOOLS: list[Dict[str, Any]] = [
         "parameters": {"type": "object", "properties": {}},
     },
     {
+        "name": "list_voice_slots",
+        "description": "查看本人的声音克隆槽位（含试听预览）。",
+        "capability": "audio-slots", "paid": False,
+        "parameters": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "voice_clone_status",
+        "description": "查看某个声音克隆槽位的处理状态。",
+        "capability": "voice-clone-status", "paid": False,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "slot_id": {"type": "string", "description": "克隆槽位ID(来自查看克隆槽位)"},
+            },
+            "required": ["slot_id"],
+        },
+    },
+    {
         "name": "delegate_image",
         "description": "委派图片任务给图片子 Agent。当用户要生成图片、修改图片、分析图片内容时使用。",
         "capability": "__delegate_image__", "paid": False,

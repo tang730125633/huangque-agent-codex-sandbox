@@ -11,7 +11,7 @@ import llm
 import tools
 
 # 需要结构化展示（不走自然语言总结）的工具——结果含图片/列表，直接给前端渲染
-DISPLAY_TOOLS = {"list_avatars", "list_voices", "list_assets"}
+DISPLAY_TOOLS = {"list_avatars", "list_voices", "list_assets", "list_voice_slots"}
 
 # 黄雀主站域名，用于把相对路径的图片/音色 URL 补全
 HQ_SITE = "https://huangquechuanmei.com"

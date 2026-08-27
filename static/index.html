@@ -320,8 +320,25 @@ function renderDisplay(tool, result) {
     return `<div style="font-weight:600;margin-bottom:8px">🎤 可用音色（${items.length}，点击播放试听）：</div>${list || '无'}`;
   }
   if (tool === 'list_assets') {
-    const imgs = items.filter(i => i.url).slice(0, 20).map(i => `<img src="${imgSrc(i.url)}" style="max-width:120px;border-radius:8px;margin:4px">`).join('');
-    return `<div style="font-weight:600;margin-bottom:8px">📁 资产（${items.length}）：</div><div>${imgs || '无'}</div>`;
+    const media = items.filter(i => i.url).slice(0, 20).map(i => {
+      const isAudio = /\.(mp3|wav|m4a|aac|ogg)$/i.test(i.url);
+      if (isAudio) {
+        return `<div style="margin:4px 0"><audio controls preload="none" src="${imgSrc(i.url)}" style="height:32px;width:100%"></audio>${i.text ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">${i.text}</div>` : ''}</div>`;
+      }
+      return `<img src="${imgSrc(i.url)}" style="max-width:120px;border-radius:8px;margin:4px">`;
+    }).join('');
+    return `<div style="font-weight:600;margin-bottom:8px">📁 资产（${items.length}）：</div><div>${media || '无'}</div>`;
+  }
+  if (tool === 'list_voice_slots') {
+    if (!items.length) return '还没有声音克隆槽位。';
+    const list = items.map(s => {
+      const au = s.preview_url || '';
+      const audio = au ? `<audio controls preload="none" src="${imgSrc(au)}" style="height:32px;width:220px;vertical-align:middle"></audio>` : '';
+      const name = s.voice_name || '（空槽位）';
+      const st = s.status === 'ready' ? '✅ 可用' : (s.status === 'training' ? '⏳ 训练中' : (s.status || ''));
+      return `<div style="padding:6px 0;border-bottom:1px solid var(--line)">${audio}<div style="margin-top:4px">🎙 ${name} <span style="color:var(--muted);font-size:12px">${st}</span></div></div>`;
+    }).join('');
+    return `<div style="font-weight:600;margin-bottom:8px">🔊 声音克隆槽位（${items.length}，点击播放试听）：</div>${list}`;
   }
   return renderResult(result);
 }
