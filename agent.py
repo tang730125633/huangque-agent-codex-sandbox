@@ -247,8 +247,18 @@ def run_turn(user_message, history=None, images=None, image_data_urls=None, pend
         rr = _fix_urls(res["result"])
         # 需要结构化展示的工具（形象/音色/资产）：直接返回，让前端渲染图片/列表
         if tool_name in DISPLAY_TOOLS:
+            assistant = f"查询了{tool_name}"
+            # 音色类：把「序号 + 音色 + ID」写进历史，让用户可说「音色N」指定
+            if tool_name in ("list_voices", "list_voice_slots"):
+                items = (rr.get("items") or [])
+                lines = []
+                for i, it in enumerate(items, 1):
+                    name = it.get("display_name") or it.get("voice_name") or it.get("voice_key") or "未命名"
+                    key = it.get("voice_key") or it.get("slot_id") or ""
+                    lines.append(f"{i}. {name}（voice_key:{key}）")
+                assistant = "当前可用音色：\n" + "\n".join(lines) + "\n（用户可说「用音色1/音色2」或直接说音色名来指定）"
             return {"type": "display", "tool": tool_name, "result": rr,
-                    "assistant_content": f"查询了{ tool.get('name','') if False else tool_name }"}
+                    "assistant_content": assistant}
         summary = llm.summarize(user_message, tool_name, rr, history)
         return {"type": "text", "text": summary, "tool": tool_name, "result": rr, "assistant_content": summary}
     msg = res.get("message") or str(res)[:200]

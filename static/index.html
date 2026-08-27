@@ -391,12 +391,13 @@ function renderDisplay(tool, result) {
     return `<div style="font-weight:600;margin-bottom:8px">👤 你的数字人形象（${items.length}）：</div><div style="display:flex;flex-wrap:wrap;gap:10px">${cards}</div>`;
   }
   if (tool === 'list_voices') {
-    const list = items.map(v => {
+    const nums = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
+    const list = items.map((v, i) => {
       const au = v.preview_url || (v.preview_file ? 'https://video.huangquechuanmei.com/huangque/' + v.preview_file : '');
       const audio = au ? `<audio controls preload="none" src="${imgSrc(au)}" style="height:32px;width:200px;vertical-align:middle"></audio>` : '';
-      return `<div style="padding:4px 0">${audio} 🎙 ${v.display_name || v.name || v.voice_key || ''}</div>`;
+      return `<div style="padding:4px 0">${audio} ${nums[i] || (i+1)} ${v.display_name || v.name || v.voice_key || ''}</div>`;
     }).join('');
-    return `<div style="font-weight:600;margin-bottom:8px">🎤 可用音色（${items.length}，点击播放试听）：</div>${list || '无'}`;
+    return `<div style="font-weight:600;margin-bottom:8px">🎤 可用音色（${items.length}，点击播放试听，可说「用音色N」指定）：</div>${list || '无'}`;
   }
   if (tool === 'list_assets') {
     const media = items.filter(i => i.url).slice(0, 20).map(i => {
@@ -411,14 +412,15 @@ function renderDisplay(tool, result) {
   if (tool === 'list_voice_slots') {
     const okItems = items.filter(s => s.status !== 'failed');
     if (!okItems.length) return '还没有克隆成功的音色，点 🎵 上传或 🎙 录一段 10-60 秒的样音克隆一个吧。';
-    const list = okItems.map(s => {
+    const nums = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
+    const list = okItems.map((s, i) => {
       const au = s.preview_url || '';
       const audio = au ? `<audio controls preload="none" src="${imgSrc(au)}" style="height:32px;width:220px;vertical-align:middle"></audio>` : '';
       const name = s.voice_name || '（空槽位）';
       const st = s.status === 'ready' ? '<span style="color:#2bd576">✅ 可用</span>' : '<span style="color:#e7b24c">⏳ 训练中</span>';
-      return `<div style="padding:6px 0;border-bottom:1px solid var(--line)">${audio}<div style="margin-top:4px">🎙 ${name} ${st}</div></div>`;
+      return `<div style="padding:6px 0;border-bottom:1px solid var(--line)">${audio}<div style="margin-top:4px">${nums[i] || (i+1)} 🎙 ${name} ${st}</div></div>`;
     }).join('');
-    return `<div style="font-weight:600;margin-bottom:8px">🔊 声音克隆槽位（${okItems.length}，点击播放试听）：</div>${list}`;
+    return `<div style="font-weight:600;margin-bottom:8px">🔊 声音克隆槽位（${okItems.length}，点击播放试听，可说「用音色N」指定）：</div>${list}`;
   }
   return renderResult(result);
 }

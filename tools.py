@@ -16,6 +16,7 @@ TOOLS: list[Dict[str, Any]] = [
             "type": "object",
             "properties": {
                 "text": {"type": "string", "description": "要配音的文字"},
+                "voice": {"type": "string", "description": "音色ID(voice_key)，如 S_d21F8OR62。用户说「用音色N」时，从之前查到的音色清单里取对应的 voice_key"},
             },
             "required": ["text"],
         },
