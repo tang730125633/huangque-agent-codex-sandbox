@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>黄雀 Agent · 内容生产助手</title>
+<style>
+  :root { --bg:#0f1115; --card:#1a1d24; --line:#2a2f3a; --text:#e6e8ec; --muted:#8b93a3; --accent:#f5b942; --green:#3ddc84; --red:#ff5d5d; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; height:100vh; display:flex; flex-direction:column; }
+  header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; }
+  header .logo { font-size:20px; }
+  header h1 { font-size:16px; font-weight:600; }
+  header .status { margin-left:auto; font-size:12px; color:var(--muted); }
+  .hdr-btn { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:6px 12px; color:var(--text); font-size:13px; cursor:pointer; }
+  .hdr-btn:hover { border-color:var(--accent); }
+  .ex-btn { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:6px 12px; color:var(--text); font-size:12px; cursor:pointer; }
+  .ex-btn:hover { border-color:var(--accent); color:var(--accent); }
+  #authOverlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); display:none; align-items:center; justify-content:center; z-index:1000; }
+  #authBox { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:28px; width:320px; text-align:center; }
+  #authBox h2 { font-size:18px; margin-bottom:6px; }
+  #authBox p { color:var(--muted); font-size:12px; margin-bottom:14px; }
+  #authBox input { width:100%; margin-bottom:12px; padding:10px; }
+  #chat { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:14px; }
+  .msg { max-width:80%; padding:12px 16px; border-radius:12px; line-height:1.6; font-size:14px; white-space:pre-wrap; word-break:break-word; }
+  .msg.user { align-self:flex-end; background:#2b3a67; }
+  .msg.agent { align-self:flex-start; background:var(--card); border:1px solid var(--line); }
+  .msg .msg-img { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+  .msg .msg-img img { max-height:120px; border-radius:8px; }
+  .tool-card { align-self:flex-start; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; max-width:85%; font-size:13px; }
+  .tool-card .tool-name { color:var(--accent); font-weight:600; margin-bottom:6px; }
+  .tool-card .cost { color:var(--muted); }
+  .tool-card .cost b { color:var(--accent); }
+  .btn { display:inline-block; padding:8px 18px; border-radius:8px; border:none; cursor:pointer; font-size:13px; font-weight:600; }
+  .btn.confirm { background:var(--accent); color:#1a1a1a; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .result-img { max-width:100%; border-radius:8px; margin-top:8px; }
+  .result-link { color:#6cb2ff; word-break:break-all; }
+  .spin { display:inline-block; animation:sp 1s linear infinite; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+  footer { border-top:1px solid var(--line); padding:12px 14px; }
+  #attachments { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+  #attachments .att { position:relative; }
+  #attachments .att img { height:64px; border-radius:8px; border:1px solid var(--line); }
+  #attachments .att .rm { position:absolute; top:-6px; right:-6px; width:18px; height:18px; border-radius:50%; background:var(--red); color:#fff; border:none; cursor:pointer; font-size:12px; line-height:18px; text-align:center; }
+  .input-row { display:flex; gap:10px; align-items:flex-end; }
+  #input { flex:1; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; color:var(--text); font-size:14px; resize:none; outline:none; }
+  #upload { background:var(--card); border:1px solid var(--line); border-radius:10px; width:44px; height:44px; cursor:pointer; font-size:18px; color:var(--text); }
+  #send { background:var(--accent); color:#1a1a1a; border:none; border-radius:10px; padding:0 22px; height:44px; font-weight:700; cursor:pointer; }
+</style>
+</head>
+<body>
+<div id="authOverlay"><div id="authBox">
+  <h2>🔒 访问密码</h2>
+  <p>本服务需要访问密码</p>
+  <input id="authInput" type="password" placeholder="请输入访问密码">
+  <button id="authBtn">进入</button>
+</div></div>
+<header>
+  <span class="logo">🐦</span>
+  <h1>黄雀 Agent · 内容生产助手</h1>
+  <button class="hdr-btn" id="createAvatar" title="上传真人照片创建数字人形象">👤 创建数字人</button>
+  <button class="hdr-btn" id="cloneVoice" title="上传样音克隆声音">🎤 克隆声音</button>
+  <select class="hdr-btn" id="modelSelect" title="切换模型"></select>
+  <span class="status" id="status">连接中…</span>
+</header>
+
+<div id="chat"></div>
+
+<footer>
+  <div id="attachments"></div>
+  <div class="input-row">
+    <button id="upload" title="添加图片附件（跟文字一起发送）">🖼</button>
+    <button id="uploadVoice" title="上传音频（克隆声音/口播素材）">🎵</button>
+    <textarea id="input" rows="1" placeholder="说人话，例如：生成一张橘猫晒太阳的图片 / 我账号还有多少点数"></textarea>
+    <button id="send">发送</button>
+    <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+  <input type="file" id="avatarFileInput" accept="image/*" style="display:none">
+  <input type="file" id="voiceFileInput" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg" style="display:none">
+  </div>
+</footer>
+
+<script>
+// 访问鉴权：所有 fetch 自动带 token；无 token 显示密码遮罩
+let accessToken = localStorage.getItem('access_token') || '';
+const _rawFetch = window.fetch;
+window.fetch = function(url, opts={}) {
+  opts.headers = opts.headers || {};
+  if (!(opts.headers instanceof Headers)) opts.headers = new Headers(opts.headers);
+  if (accessToken) opts.headers.set('Authorization', 'Bearer ' + accessToken);
+  return _rawFetch(url, opts);
+};
+async function checkAuth() {
+  if (!accessToken) { document.getElementById('authOverlay').style.display = 'flex'; return; }
+  try {
+    const r = await _rawFetch('/status', {headers:{'Authorization':'Bearer '+accessToken}});
+    if (r.status === 401) { accessToken=''; localStorage.removeItem('access_token'); document.getElementById('authOverlay').style.display='flex'; }
+  } catch(e) {}
+}
+document.getElementById('authBtn').onclick = async () => {
+  const t = document.getElementById('authInput').value.trim();
+  if (!t) return;
+  const r = await _rawFetch('/auth', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({token:t})}).then(r=>r.json());
+  if (r.ok) { accessToken = t; localStorage.setItem('access_token', t); document.getElementById('authOverlay').style.display='none'; }
+  else { alert('密码错误'); }
+};
+document.getElementById('authInput').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('authBtn').click(); });
+
+const chat = document.getElementById('chat');
+const input = document.getElementById('input');
+const send = document.getElementById('send');
+const uploadBtn = document.getElementById('upload');
+const fileInput = document.getElementById('fileInput');
+const attachmentsEl = document.getElementById('attachments');
+const statusEl = document.getElementById('status');
+
+let pendingFiles = [];  // 待发送的图片 File 对象
+let sessionId = localStorage.getItem('hq_session') || null;  // 会话 ID（后端持久化历史）
+
+function addMsg(text, role, imgUrls=[]) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + role;
+  if (imgUrls && imgUrls.length) {
+    const imgs = document.createElement('div');
+    imgs.className = 'msg-img';
+    imgUrls.forEach(u => { const i = document.createElement('img'); i.src = u; imgs.appendChild(i); });
+    d.appendChild(imgs);
+  }
+  if (text) { const t = document.createElement('span'); t.textContent = text; d.appendChild(t); }
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  return d;
+}
+
+function addToolCard(html) {
+  const d = document.createElement('div');
+  d.className = 'tool-card';
+  d.innerHTML = html;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  return d;
+}
+
+function renderAttachments() {
+  attachmentsEl.innerHTML = '';
+  pendingFiles.forEach((f, idx) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'att';
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(f);
+    const rm = document.createElement('button');
+    rm.className = 'rm'; rm.textContent = '×';
+    rm.onclick = () => { pendingFiles.splice(idx, 1); renderAttachments(); };
+    wrap.appendChild(img); wrap.appendChild(rm);
+    attachmentsEl.appendChild(wrap);
+  });
+}
+
+uploadBtn.onclick = () => fileInput.click();
+fileInput.onchange = () => {
+  for (const f of fileInput.files) pendingFiles.push(f);
+  fileInput.value = '';
+  renderAttachments();
+};
+
+// 创建数字人形象（上传真人照片）
+const createAvatarBtn = document.getElementById('createAvatar');
+const avatarFileInput = document.getElementById('avatarFileInput');
+createAvatarBtn.onclick = () => avatarFileInput.click();
+avatarFileInput.onchange = async () => {
+  const f = avatarFileInput.files[0];
+  if (!f) return;
+  avatarFileInput.value = '';
+  addMsg('👤 上传照片创建数字人：' + f.name, 'user');
+  const card = addMsg('创建数字人形象中，大约需要 30 秒… ⏳', 'agent');
+  const fd = new FormData();
+  fd.append('file', f);
+  try {
+    const r = await fetch('/upload/avatar', { method:'POST', body: fd }).then(r=>r.json());
+    if (r.ok) {
+      const a = r.avatar || {};
+      card.innerHTML = '✅ 数字人形象创建成功！' + (a.name ? '（' + a.name + '）' : '') + ' 可以说「查看数字人形象」确认，或让我用它做口播视频。';
+    } else {
+      card.innerHTML = '创建失败：' + (r.detail || r.message || '未知错误');
+    }
+  } catch(e) { card.innerHTML = '创建失败：' + e.message; }
+};
+
+// 克隆声音（上传样音）
+const cloneVoiceBtn = document.getElementById('cloneVoice');
+const voiceFileInput = document.getElementById('voiceFileInput');
+cloneVoiceBtn.onclick = () => voiceFileInput.click();
+const uploadVoiceBtn = document.getElementById('uploadVoice');
+if (uploadVoiceBtn) uploadVoiceBtn.onclick = () => voiceFileInput.click();
+voiceFileInput.onchange = async () => {
+  const f = voiceFileInput.files[0];
+  if (!f) return;
+  voiceFileInput.value = '';
+  addMsg('🎤 上传样音克隆声音：' + f.name, 'user');
+  const card = addMsg('正在准备… ⏳', 'agent');
+  let slotId = null;
+  try {
+    const slots = await fetch('/voice-slots').then(r=>r.json());
+    const items = slots.items || (Array.isArray(slots) ? slots : []);
+    const ready = items.find(s => s.status === 'ready');
+    slotId = ready ? ready.slot_id : (items.length ? items[0].slot_id : null);
+    if (!slotId) { card.innerHTML = '没有可用的音色槽位，请先在网页端开通。'; return; }
+  } catch(e) { card.innerHTML = '查询音色槽位失败：' + e.message; return; }
+  card.innerHTML = '正在克隆声音（训练中，约 1-2 分钟）… ⏳';
+  const fd = new FormData();
+  fd.append('file', f);
+  try {
+    const r = await fetch('/upload/voice?slot_id=' + encodeURIComponent(slotId), { method:'POST', body: fd }).then(r=>r.json());
+    if (r.ok) {
+      const v = r.voice || {};
+      card.innerHTML = '✅ 声音克隆已提交（状态：' + (v.status || 'training') + '）。训练完成后可说「查看音色」确认。';
+    } else {
+      card.innerHTML = '克隆失败：' + (r.detail || r.message || '未知错误');
+    }
+  } catch(e) { card.innerHTML = '克隆失败：' + e.message; }
+};
+
+function fileToDataUrl(f) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(f);
+  });
+}
+
+async function uploadFiles(files) {
+  const ids = [];
+  const dataUrls = [];
+  for (const f of files) {
+    dataUrls.push(await fileToDataUrl(f));  // base64，供 Agent 看图
+    const fd = new FormData();
+    fd.append('file', f);
+    const r = await fetch('/upload/image', { method:'POST', body: fd }).then(r=>r.json());
+    if (r.upload_id) ids.push(r.upload_id);
+  }
+  return { ids, dataUrls };
+}
+
+async function handleTurn(text, imageUploadIds, imageDataUrls) {
+  // 用户消息气泡（含图片缩略图）
+  const localImgs = pendingFiles.map(f => URL.createObjectURL(f));
+  addMsg(text, 'user', localImgs);
+  const card = addMsg('🐦 思考中…', 'agent');
+  let resp;
+  try {
+    resp = await fetch('/agent', {
+      method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ message: text, images: imageUploadIds, image_data_urls: imageDataUrls, session_id: sessionId })
+    }).then(r=>r.json());
+  } catch(e) { card.innerHTML = '<div style="color:var(--red)">请求失败：'+e.message+'</div>'; return; }
+  if (resp.session_id) { sessionId = resp.session_id; localStorage.setItem('hq_session', sessionId); }
+
+  if (resp.type === 'text') {
+    card.className = 'msg agent';
+    card.innerHTML = resp.text || '（无回复）';
+  } else if (resp.type === 'quote') {
+    card.className = 'msg agent';
+    const btnId = 'btn_' + Date.now();
+    card.innerHTML = `${resp.explanation||''}<br><button class="btn confirm" id="${btnId}" style="margin-top:10px">开始</button>`;
+    document.getElementById(btnId).onclick = async () => {
+      document.getElementById(btnId).disabled = true;
+      document.getElementById(btnId).textContent = '处理中…';
+      try {
+        // 确认执行走主 Agent：主 AI 会把子 Agent 的结构化结果转成自然语言
+        const ex = await fetch('/agent', {
+          method:'POST', headers:{'content-type':'application/json'},
+          body: JSON.stringify({ message:'确认执行', session_id: sessionId })
+        }).then(r=>r.json());
+        if (ex.type === 'running' && ex.job_id) {
+          card.innerHTML = '正在生成中，大约需要 1-2 分钟… <span class="spin">⏳</span>';
+          pollTask(ex.job_id, card);
+        } else if (ex.type === 'text') {
+          card.innerHTML = ex.text || '完成啦！';
+        } else {
+          card.innerHTML = ex.message || ex.text || '执行失败';
+        }
+      } catch(e) { card.innerHTML = '执行失败：'+e.message; }
+    };
+  } else if (resp.type === 'display') {
+    card.className = 'msg agent';
+    card.innerHTML = renderDisplay(resp.tool, resp.result);
+  } else if (resp.type === 'result') {
+    card.className = 'msg agent';
+    card.innerHTML = renderResult(resp.result) || '完成啦！';
+  } else if (resp.type === 'running') {
+    card.className = 'msg agent';
+    if (resp.job_id) {
+      card.innerHTML = '正在生成中，大约需要 1-2 分钟… <span class="spin">⏳</span>';
+      pollTask(resp.job_id, card);
+    } else {
+      card.innerHTML = resp.summary || '已提交';
+    }
+  } else if (resp.type === 'error') {
+    card.className = 'msg agent';
+    card.innerHTML = resp.message||'出错了';
+  }
+}
+
+function renderDisplay(tool, result) {
+  const tk = localStorage.getItem('access_token') || '';
+  const imgSrc = u => u.startsWith('http') ? `/proxy-image?url=${encodeURIComponent(u)}&token=${tk}` : u;
+  const items = result.items || (Array.isArray(result) ? result : []);
+  if (tool === 'list_avatars') {
+    if (!items.length) return '还没有数字人形象。';
+    const cards = items.map(a => `<div style="text-align:center;margin:6px"><img src="${imgSrc(a.image_url||a.image_file||'')}" style="width:120px;border-radius:10px;background:#222" onerror="this.style.display='none'"><div style="font-size:12px;color:var(--muted);margin-top:4px">${a.name||''}${a.status==='ready'?' ✅':''}</div></div>`).join('');
+    return `<div style="font-weight:600;margin-bottom:8px">👤 你的数字人形象（${items.length}）：</div><div style="display:flex;flex-wrap:wrap;gap:10px">${cards}</div>`;
+  }
+  if (tool === 'list_voices') {
+    const list = items.map(v => `<div style="padding:4px 0">🎙 ${v.display_name || v.name || v.voice_key || ''}</div>`).join('');
+    return `<div style="font-weight:600;margin-bottom:8px">🎤 可用音色（${items.length}）：</div>${list || '无'}`;
+  }
+  if (tool === 'list_assets') {
+    const imgs = items.filter(i => i.url).slice(0, 20).map(i => `<img src="${imgSrc(i.url)}" style="max-width:120px;border-radius:8px;margin:4px">`).join('');
+    return `<div style="font-weight:600;margin-bottom:8px">📁 资产（${items.length}）：</div><div>${imgs || '无'}</div>`;
+  }
+  return renderResult(result);
+}
+
+function renderResult(result) {
+  if (!result) return '';
+  if (typeof result === 'string') return result;
+  const tk = localStorage.getItem('access_token') || '';
+  const imgSrc = u => `/proxy-image?url=${encodeURIComponent(u)}&token=${tk}`;
+  const parts = [];
+  if (result.url) parts.push(`<img class="result-img" src="${imgSrc(result.url)}">`);
+  if (result.urls) result.urls.forEach(u => parts.push(`<img class="result-img" src="${imgSrc(u)}">`));
+  if (result.video_url) parts.push(`<video class="result-img" controls src="${result.video_url}"></video>`);
+  if (result.points !== undefined) parts.push(`<div>剩余点数：<b>${result.points}</b></div>`);
+  if (!parts.length) return '<pre style="white-space:pre-wrap;font-size:12px;color:var(--muted)">' + JSON.stringify(result, null, 2).slice(0, 600) + '</pre>';
+  return parts.join('');
+}
+
+async function autoDescribe(url, card) {
+  // 生成后自动看图：让 Agent 描述自己生成的图
+  try {
+    const r = await fetch('/agent', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({message:'用一句话描述这张图：'+url, session_id: sessionId})}).then(r=>r.json());
+    if (r.type === 'text' && r.text) {
+      card.innerHTML += '<div style="color:var(--muted);font-size:13px;margin-top:8px;border-top:1px solid var(--line);padding-top:8px">👁 ' + r.text + '</div>';
+      chat.scrollTop = chat.scrollHeight;
+    }
+  } catch(e) {}
+}
+
+async function pollBatch(jobs, card) {
+  const results = [];
+  const urls = [];
+  for (const j of jobs) {
+    const jid = (j && (j.job_id || (j.result && j.result.job_id)));
+    if (!jid) { results.push(j && (j.error || '失败')); continue; }
+    let got = null;
+    for (let k=0; k<60; k++) {
+      await new Promise(r => setTimeout(r, 4000));
+      const t = await fetch('/task/'+jid).then(r=>r.json()).then(d=>d.task);
+      if (t.status === 'done') { got = t.result || {}; break; }
+      if (t.status === 'error') { got = { error: t.error }; break; }
+    }
+    results.push(got || { error: '超时' });
+    const u = got && (got.url || (got.urls && got.urls[0]));
+    if (u) urls.push(u);
+    card.innerHTML = `正在生成第 ${results.length}/${jobs.length} 张… <span class="spin">⏳</span>`;
+  }
+  card.innerHTML = results.map(r => renderResult(r)).join('') || '完成';
+  if (urls.length && sessionId) {
+    fetch('/session/note', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({session_id: sessionId, content: `图片生成完成，URL：${urls.join(' , ')}`})});
+  }
+  if (urls.length) autoDescribe(urls[0], card);
+}
+
+async function pollTask(jobId, card, retried = false) {
+  const MAX_POLLS = 60;
+  for (let i=0; i<MAX_POLLS; i++) {
+    await new Promise(r => setTimeout(r, 5000));
+    let t;
+    try { t = await fetch('/task/'+jobId).then(r=>r.json()).then(d=>d.task); }
+    catch(e) { continue; }
+    if (t.status === 'done') {
+      card.innerHTML = renderResult(t.result || {}) || '完成啦！';
+      const u = t.result && (t.result.url || (t.result.urls && t.result.urls[0]));
+      if (u && sessionId) {
+        fetch('/session/note', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({session_id: sessionId, content: `任务 ${jobId} 完成，图片 URL：${u}`})});
+      }
+      if (u) autoDescribe(u, card);
+      return;
+    }
+    if (t.status === 'error') {
+      const err = t.error || t.result?.message || '未知错误';
+      // 可重试错误（上游网络波动）→ 自动重试一次
+      if (!retried && /remote end closed|connection|timeout|closed|reset/i.test(err)) {
+        card.innerHTML = '生成失败（上游网络波动），自动重试中… <span class="spin">⏳</span>';
+        try {
+          const ex = await fetch('/agent', {method:'POST', headers:{'content-type':'application/json'},
+            body: JSON.stringify({message:'确认执行', session_id: sessionId})}).then(r=>r.json());
+          if (ex.type === 'running' && ex.job_id) { pollTask(ex.job_id, card, true); }
+          else { card.innerHTML = ex.message || ex.text || '自动重试失败，请再试一次'; }
+        } catch(e2) { card.innerHTML = '自动重试失败，请再试一次'; }
+        return;
+      }
+      card.innerHTML = '这次生成失败了（' + err + '），费用已自动退回，可以再试一次。';
+      return;
+    }
+  }
+  card.innerHTML = '生成时间有点长，可能还在处理中。稍后可以问我「刚才的任务好了吗」查询结果。';
+}
+
+send.onclick = async () => {
+  const text = input.value.trim();
+  if (!text && !pendingFiles.length) return;
+  input.value = '';
+  const files = [...pendingFiles];
+  pendingFiles = [];
+  renderAttachments();
+  // 先把图片上传拿 upload_id + base64，再跟文字一起发
+  const up = files.length ? await uploadFiles(files) : { ids: [], dataUrls: [] };
+  handleTurn(text, up.ids, up.dataUrls);
+};
+
+input.addEventListener('keydown', e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); send.click(); } });
+
+(async () => {
+  await checkAuth();
+  try {
+    const s = await fetch('/status').then(r=>r.json());
+    statusEl.textContent = `账号 ${s.username} · 点数 ${s.points}`;
+  } catch(e) { statusEl.textContent = '未连接'; }
+  // 加载模型选择器
+  const modelSelect = document.getElementById('modelSelect');
+  try {
+    const m = await fetch('/models').then(r=>r.json());
+    modelSelect.innerHTML = m.models.map(x => `<option value="${x.id}" ${x.current?'selected':''}>${x.name}</option>`).join('');
+    modelSelect.onchange = async () => {
+      await fetch('/model/switch', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({provider: modelSelect.value}) });
+      addMsg('已切换模型：' + modelSelect.selectedOptions[0].text, 'agent');
+    };
+  } catch(e) { /* 模型列表加载失败忽略 */ }
+  renderWelcome();
+})();
+
+function renderWelcome() {
+  const d = document.createElement('div');
+  d.className = 'msg agent';
+  d.innerHTML = `<div>💡 试试这些示例，或直接在下面输入需求：</div>
+    <div style="margin:8px 0;display:flex;flex-wrap:wrap;gap:6px">
+      <button class="ex-btn" data-t="生成一张橘猫晒太阳的图片">🎨 生成图片</button>
+      <button class="ex-btn" data-t="生成一段15秒的口播视频，主题是美业护肤">🎬 生成视频</button>
+      <button class="ex-btn" data-t="搜抖音上美业的内容">🔍 搜索内容</button>
+      <button class="ex-btn" data-t="查看数字人形象">👤 查形象</button>
+      <button class="ex-btn" data-t="生成一段配音：欢迎来到黄雀">🎙 配音</button>
+      <button class="ex-btn" data-t="我有多少点数">💰 查点数</button>
+    </div>
+    <div style="color:var(--muted);font-size:12px;margin-top:4px">顶部可切换模型；「👤 创建数字人」「🎤 克隆声音」上传素材。付费会先报价。</div>`;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  d.querySelectorAll('.ex-btn').forEach(btn => {
+    btn.onclick = () => { handleTurn(btn.dataset.t, null); };
+  });
+}
+</script>
+</body>
+</html>

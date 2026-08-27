@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>黄雀 Agent · API 测试台</title>
+<style>
+  :root { --bg:#0f1115; --card:#1a1d24; --line:#2a2f3a; --text:#e6e8ec; --muted:#8b93a3; --accent:#f5b942; --green:#3ddc84; --red:#ff5d5d; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; padding:20px; max-width:900px; margin:0 auto; }
+  h1 { font-size:20px; margin-bottom:4px; }
+  .sub { color:var(--muted); font-size:13px; margin-bottom:20px; }
+  .section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
+  .section h2 { font-size:15px; margin-bottom:10px; color:var(--accent); }
+  .row { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+  input, textarea, select { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px 10px; color:var(--text); font-size:13px; outline:none; }
+  textarea { flex:1; min-width:200px; resize:vertical; }
+  select { cursor:pointer; }
+  button { background:var(--accent); color:#1a1a1a; border:none; border-radius:8px; padding:8px 16px; font-weight:700; cursor:pointer; font-size:13px; }
+  button.ghost { background:var(--card); color:var(--text); border:1px solid var(--line); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .result { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px; margin-top:8px; font-size:12px; white-space:pre-wrap; word-break:break-all; max-height:300px; overflow:auto; color:var(--muted); }
+  .result img { max-width:100%; border-radius:6px; margin-top:6px; }
+  .ok { color:var(--green); }
+  .err { color:var(--red); }
+  .tag { font-size:11px; color:var(--muted); background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:1px 6px; }
+  label { font-size:12px; color:var(--muted); align-self:center; }
+  #authOverlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); display:none; align-items:center; justify-content:center; z-index:1000; }
+  #authBox { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:28px; width:320px; text-align:center; }
+  #authBox h2 { font-size:18px; margin-bottom:6px; }
+  #authBox p { color:var(--muted); font-size:12px; margin-bottom:14px; }
+  #authBox input { width:100%; margin-bottom:12px; padding:10px; }
+</style>
+</head>
+<body>
+<div id="authOverlay"><div id="authBox">
+  <h2>🔒 访问密码</h2>
+  <p>本服务需要访问密码</p>
+  <input id="authInput" type="password" placeholder="请输入访问密码">
+  <button id="authBtn">进入</button>
+</div></div>
+<h1>🐦 黄雀 Agent · API 测试台</h1>
+<div class="sub">直接测试每个端点，支持自定义参数。回首页 <a href="/" style="color:#6cb2ff">对话界面</a> ｜ 英文版 <a href="/docs" style="color:#6cb2ff">Swagger</a></div>
+
+<!-- 对话测试 -->
+<div class="section">
+  <h2>💬 对话（POST /agent）</h2>
+  <div class="row"><textarea id="agentMsg" rows="2" placeholder="自然语言，例如：生成一张橘猫晒太阳的图">我有多少点数</textarea></div>
+  <div class="row"><button id="agentBtn">发送对话</button><span class="tag">自动工具调用 · 付费先报价</span></div>
+  <div class="result" id="agentResult">结果将显示在这里…</div>
+</div>
+
+<!-- 生成测试 -->
+<div class="section">
+  <h2>🎨 生成能力（POST /quote → /execute）</h2>
+  <div class="row">
+    <label>能力</label>
+    <select id="capability">
+      <option value="image-generate">image-generate 图片生成</option>
+      <option value="video-generate">video-generate 视频生成</option>
+      <option value="audio-generate">audio-generate 音频配音</option>
+      <option value="collect-search">collect-search 搜索内容</option>
+      <option value="leads-generate">leads-generate 获客名单</option>
+    </select>
+  </div>
+  <div class="row">
+    <label>参数</label>
+    <textarea id="params" rows="2">{"prompt":"一只橘猫晒太阳","ratio":"1:1"}</textarea>
+  </div>
+  <div class="row">
+    <button id="quoteBtn">1. 报价</button>
+    <button id="execBtn" disabled>2. 确认执行</button>
+    <span class="tag" id="quoteInfo"></span>
+  </div>
+  <div class="result" id="genResult">先点「报价」…</div>
+</div>
+
+<!-- 查询测试 -->
+<div class="section">
+  <h2>🔍 查询端点（一键测试）</h2>
+  <div class="row" style="gap:6px">
+    <button class="ghost" data-api="/status">账号状态</button>
+    <button class="ghost" data-api="/models">模型列表</button>
+    <button class="ghost" data-api="/voice-slots">音色槽位</button>
+    <button class="ghost" data-api="/health">健康检查</button>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <label>任务ID</label><input id="taskId" value="7020" style="width:100px">
+    <button class="ghost" id="taskBtn">查任务</button>
+  </div>
+  <div class="result" id="queryResult">结果将显示在这里…</div>
+</div>
+
+<!-- 自定义模型供应商 -->
+<div class="section">
+  <h2>🔌 自定义模型供应商（换自己的 API）</h2>
+  <div class="sub" style="margin-bottom:10px">如果 API 没钱了，或想用自己的 Key，在这里添加。OpenAI 兼容（绝大多数中转/厂家）或 Anthropic 格式。</div>
+  <div class="row">
+    <input id="cmName" placeholder="名称（如 我的OpenAI）" style="flex:1">
+    <input id="cmBaseUrl" placeholder="Base URL（如 https://api.openai.com/v1）" style="flex:2">
+  </div>
+  <div class="row">
+    <input id="cmKey" placeholder="API Key" style="flex:2">
+    <input id="cmModel" placeholder="模型名（如 gpt-4o）" style="flex:1">
+    <select id="cmFormat">
+      <option value="openai">OpenAI 兼容</option>
+      <option value="anthropic">Anthropic</option>
+    </select>
+  </div>
+  <div class="row">
+    <button id="cmAdd">➕ 添加供应商</button>
+    <span class="tag">添加后可在顶部「模型下拉框」和对话页切换使用</span>
+  </div>
+  <div id="cmList" style="margin-top:8px"></div>
+</div>
+
+<script>
+let accessToken = localStorage.getItem('access_token') || '';
+const _rawFetch = window.fetch;
+window.fetch = function(url, opts={}) {
+  opts.headers = opts.headers || {};
+  if (!(opts.headers instanceof Headers)) opts.headers = new Headers(opts.headers);
+  if (accessToken) opts.headers.set('Authorization', 'Bearer ' + accessToken);
+  return _rawFetch(url, opts);
+};
+async function checkAuth() {
+  if (!accessToken) { document.getElementById('authOverlay').style.display = 'flex'; return; }
+  try {
+    const r = await _rawFetch('/status', {headers:{'Authorization':'Bearer '+accessToken}});
+    if (r.status === 401) { accessToken=''; localStorage.removeItem('access_token'); document.getElementById('authOverlay').style.display='flex'; }
+  } catch(e) {}
+}
+document.getElementById('authBtn').onclick = async () => {
+  const t = document.getElementById('authInput').value.trim();
+  if (!t) return;
+  const r = await _rawFetch('/auth', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({token:t})}).then(r=>r.json());
+  if (r.ok) { accessToken = t; localStorage.setItem('access_token', t); document.getElementById('authOverlay').style.display='none'; }
+  else { alert('密码错误'); }
+};
+document.getElementById('authInput').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('authBtn').click(); });
+checkAuth();
+
+function showResult(el, data) {
+  if (typeof data === 'string') { el.textContent = data; return; }
+  const s = JSON.stringify(data, null, 2);
+  el.textContent = s;
+  // 如果结果里有图片 URL，追加显示
+  const urls = [];
+  (function walk(o){
+    if (!o || typeof o !== 'object') return;
+    if (typeof o === 'string' && o.match(/\.(png|jpg|jpeg|webp|gif)(\?|$)/i)) urls.push(o);
+    if (Array.isArray(o)) o.forEach(walk); else Object.values(o).forEach(walk);
+  })(data);
+  urls.slice(0,4).forEach(u => {
+    const tk = localStorage.getItem('access_token') || '';
+    const img = document.createElement('img');
+    img.src = u.startsWith('http') ? `/proxy-image?url=${encodeURIComponent(u)}&token=${tk}` : u;
+    el.appendChild(img);
+  });
+}
+async function api(method, path, body) {
+  const opt = { method, headers:{'content-type':'application/json'} };
+  if (body) opt.body = JSON.stringify(body);
+  const r = await fetch(path, opt);
+  const t = await r.text();
+  try { return JSON.parse(t); } catch(e) { return t; }
+}
+
+// 对话
+document.getElementById('agentBtn').onclick = async () => {
+  const el = document.getElementById('agentResult');
+  el.textContent = '请求中…';
+  const r = await api('POST','/agent',{message: document.getElementById('agentMsg').value});
+  showResult(el, r);
+};
+
+// 生成
+let quoteToken = null;
+document.getElementById('capability').onchange = () => {
+  const c = document.getElementById('capability').value;
+  const defaults = {
+    'image-generate': {prompt:'一只橘猫晒太阳',ratio:'1:1'},
+    'video-generate': {prompt:'一只猫在草地奔跑',channel:'grok',duration:5,ratio:'16:9'},
+    'audio-generate': {text:'你好，这是配音测试'},
+    'collect-search': {platform:'douyin',keyword:'美业'},
+    'leads-generate': {platforms:['douyin'],keyword:'美业'},
+  };
+  document.getElementById('params').value = JSON.stringify(defaults[c] || {});
+};
+document.getElementById('quoteBtn').onclick = async () => {
+  const el = document.getElementById('genResult');
+  const info = document.getElementById('quoteInfo');
+  let params; try { params = JSON.parse(document.getElementById('params').value); } catch(e){ el.textContent='参数不是合法 JSON'; return; }
+  el.textContent = '报价中…';
+  const r = await api('POST','/quote',{capability: document.getElementById('capability').value, params});
+  if (r.quote_token) {
+    quoteToken = r.quote_token;
+    info.textContent = `费用 ${r.cost} 点（余额 ${r.points}）`;
+    document.getElementById('execBtn').disabled = false;
+  } else { quoteToken = null; info.textContent=''; document.getElementById('execBtn').disabled = true; }
+  showResult(el, r);
+};
+document.getElementById('execBtn').onclick = async () => {
+  const el = document.getElementById('genResult');
+  let params; try { params = JSON.parse(document.getElementById('params').value); } catch(e){ return; }
+  el.textContent = '执行中…';
+  const r = await api('POST','/execute',{capability: document.getElementById('capability').value, params, quote_token: quoteToken});
+  showResult(el, r);
+  // 如果有 job_id，自动轮询
+  if (r.result && r.result.job_id) {
+    const jid = r.result.job_id;
+    const poll = async () => {
+      const t = await api('GET','/task/'+jid);
+      if (t.task && t.task.status === 'done') { el.textContent += '\n\n✅ 任务完成：\n' + JSON.stringify(t.task.result||{}, null, 2); showResult(el, {task:t.task}); return; }
+      if (t.task && t.task.status === 'error') { el.textContent += '\n\n❌ 任务失败：' + (t.task.error||''); return; }
+      setTimeout(poll, 5000);
+    };
+    poll();
+  }
+};
+
+// 查询
+document.querySelectorAll('[data-api]').forEach(btn => {
+  btn.onclick = async () => {
+    const el = document.getElementById('queryResult');
+    el.textContent = '请求中…';
+    showResult(el, await api('GET', btn.dataset.api));
+  };
+});
+document.getElementById('taskBtn').onclick = async () => {
+  const el = document.getElementById('queryResult');
+  el.textContent = '请求中…';
+  showResult(el, await api('GET','/task/'+document.getElementById('taskId').value));
+};
+
+// 自定义模型供应商
+async function loadCustomModels() {
+  const el = document.getElementById('cmList');
+  const r = await api('GET', '/custom-models');
+  const list = r.models || [];
+  if (!list.length) { el.innerHTML = '<div class="tag">暂无自定义供应商，添加后可在模型下拉框切换</div>'; return; }
+  el.innerHTML = list.map(m => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);flex-wrap:wrap">
+      <span style="font-weight:600">${m.name}</span>
+      <span class="tag">${m.format}</span>
+      <span class="tag">${m.model}</span>
+      <span style="color:var(--muted);font-size:12px">${m.api_key_masked}</span>
+      <button class="ghost" style="margin-left:auto" onclick="delCustom('${m.id}')">删除</button>
+    </div>`).join('');
+}
+async function delCustom(id) {
+  await api('DELETE', '/custom-models/' + id);
+  loadCustomModels();
+}
+document.getElementById('cmAdd').onclick = async () => {
+  const el = document.getElementById('cmList');
+  const body = {
+    name: document.getElementById('cmName').value,
+    base_url: document.getElementById('cmBaseUrl').value,
+    api_key: document.getElementById('cmKey').value,
+    model: document.getElementById('cmModel').value,
+    format: document.getElementById('cmFormat').value,
+  };
+  if (!body.name || !body.base_url || !body.api_key || !body.model) {
+    el.innerHTML = '<div class="err">请填全 名称 / Base URL / API Key / 模型名</div>'; return;
+  }
+  const r = await api('POST', '/custom-models', body);
+  if (r.ok) { el.innerHTML = '<div class="ok">✅ 已添加，可在对话页顶部模型下拉框切换</div>'; loadCustomModels(); }
+  else { el.innerHTML = '<div class="err">' + (r.detail || '添加失败') + '</div>'; }
+};
+loadCustomModels();
+</script>
+</body>
+</html>
