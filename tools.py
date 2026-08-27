@@ -139,8 +139,8 @@ TOOLS: list[Dict[str, Any]] = [
     },
     {
         "name": "list_voice_slots",
-        "description": "查看本人的声音克隆槽位（含试听预览）。",
-        "capability": "audio-slots", "paid": False,
+        "description": "查看音色（含本人的克隆音色和公共音色，序号与「查看音色」完全一致）。",
+        "capability": "voices", "paid": False,
         "parameters": {"type": "object", "properties": {}},
     },
     {

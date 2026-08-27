@@ -335,20 +335,12 @@ def run_turn(user_message, history=None, images=None, image_data_urls=None, pend
             if tool_name in ("list_voices", "list_voice_slots"):
                 items = (rr.get("items") or [])
                 lines = []
-                for it in items:
+                for i, it in enumerate(items, 1):
                     name = it.get("display_name") or it.get("voice_name") or it.get("voice_key") or "未命名"
                     key = it.get("voice_key") or it.get("slot_id") or ""
-                    if tool_name == "list_voice_slots":
-                        # 音色槽位：序号用全局位置，与「查看音色」一致
-                        idx = _voice_global_index(it.get("slot_id"), key)
-                        it["index"] = idx
-                        label = f"{idx}. {name}" if idx else name
-                    else:
-                        idx = len(lines) + 1
-                        it["index"] = idx
-                        label = f"{idx}. {name}"
-                    lines.append(f"{label}（voice_key:{key}）")
-                assistant = "当前可用音色：\n" + "\n".join(lines) + "\n（用户可说「用音色N」或直接说音色名来指定）"
+                    it["index"] = i
+                    lines.append(f"{i}. {name}（voice_key:{key}）")
+                assistant = "当前可用音色（序号固定，克隆音色是你的声音）：\n" + "\n".join(lines) + "\n（用户可说「用音色N」或直接说音色名来指定）"
             return {"type": "display", "tool": tool_name, "result": rr,
                     "assistant_content": assistant}
         summary = llm.summarize(user_message, tool_name, rr, history)
