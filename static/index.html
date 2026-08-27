@@ -258,7 +258,7 @@ async function handleTurn(text, imageUploadIds, imageDataUrls) {
 
   if (resp.type === 'text') {
     card.className = 'msg agent';
-    card.innerHTML = resp.text || '（无回复）';
+    card.innerHTML = renderText(resp.text);
   } else if (resp.type === 'quote') {
     card.className = 'msg agent';
     const btnId = 'btn_' + Date.now();
@@ -341,6 +341,27 @@ function renderDisplay(tool, result) {
     return `<div style="font-weight:600;margin-bottom:8px">🔊 声音克隆槽位（${items.length}，点击播放试听）：</div>${list}`;
   }
   return renderResult(result);
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderText(text) {
+  if (!text) return '';
+  const tk = localStorage.getItem('access_token') || '';
+  let html = escapeHtml(text);
+  // 音频 URL → 播放器
+  html = html.replace(/https?:\/\/[^\s"'<>]+?\.(mp3|wav|m4a|aac|ogg)(\?[^\s"'<>]*)?/gi, m =>
+    `<audio controls preload="none" src="/proxy-image?url=${encodeURIComponent(m)}&token=${tk}" style="height:32px;width:100%;margin:8px 0;display:block"></audio>`);
+  // 图片 URL → 图片
+  html = html.replace(/https?:\/\/[^\s"'<>]+?\.(png|jpg|jpeg|webp)(\?[^\s"'<>]*)?/gi, m =>
+    `<img src="/proxy-image?url=${encodeURIComponent(m)}&token=${tk}" style="max-width:100%;border-radius:8px;margin:8px 0;display:block">`);
+  // markdown 加粗
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  // 换行保留
+  html = html.replace(/\n/g, '<br>');
+  return html;
 }
 
 function renderResult(result) {
