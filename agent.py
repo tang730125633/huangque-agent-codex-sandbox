@@ -70,6 +70,32 @@ def _voice_global_index(slot_id, voice_key):
     return None
 
 
+def _extract_voice_number(text):
+    """从用户消息提取音色序号（支持：音色5、5号音色、第5个、第5号）。返回字符串序号如'5'，无则 None。"""
+    if not text:
+        return None
+    for m in re.finditer(r"音色\s*([一二三四五六七八九十]|\d+)|(\d+)\s*号\s*音色|第\s*([一二三四五六七八九十]|\d+)\s*个|第\s*([一二三四五六七八九十]|\d+)\s*号", text):
+        for g in m.groups():
+            if g:
+                return g
+    return None
+
+
+def _find_prev_voice_text(history):
+    """从历史里找上一轮口播的文案/主题（用于换音色时沿用）。"""
+    for h in reversed(history or []):
+        if h.get("role") != "user":
+            continue
+        content = (h.get("content") or "").strip()
+        if not content or len(content) < 4:
+            continue
+        # 跳过纯音色选择类消息
+        if re.search(r"^(用|音色|第|换|确认|开始|ok|yes)", content, re.I):
+            continue
+        return content
+    return ""
+
+
 DISPLAY_TOOLS = {"list_avatars", "list_voices", "list_assets", "list_voice_slots"}
 
 
@@ -207,7 +233,20 @@ def run_turn(user_message, history=None, images=None, image_data_urls=None, pend
     r = llm.chat(user_message, history)
 
     if r["type"] == "text":
-        return {"type": "text", "text": r["text"], "assistant_content": r["text"]}
+        # 换音色兜底：用户说「音色N/第N个/N号音色」，LLM 却没委派时，强制换音色重新生成上一轮文案
+        vn = _extract_voice_number(user_message)
+        prev_text = _find_prev_voice_text(history)
+        if vn is not None and prev_text:
+            voice = _resolve_voice("音色" + vn)
+            if voice:
+                r = {"type": "tool", "tool": "delegate_digital_human",
+                     "params": {"intent": "数字人口播",
+                               "params": {"text": prev_text, "voice": voice}},
+                     "text": ""}
+        if r["type"] == "text":
+            # LLM 偶尔返回空 content（推理模式），给友好提示而不是空白
+            text = r["text"] or "抱歉，我刚才没想清楚，请换个说法再说一次～"
+            return {"type": "text", "text": text, "assistant_content": text}
 
     if r["type"] == "error":
         return {"type": "error", "message": r["message"], "assistant_content": f"出错：{r['message']}"}
