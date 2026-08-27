@@ -7,12 +7,57 @@
    - 付费工具 → 先报价（cost + quote_token），等用户确认后 execute_tool 才真正扣费执行
 """
 import json
+import re
 import llm
 import tools
 import hq
 
 # 需要结构化展示（不走自然语言总结）的工具——结果含图片/列表，直接给前端渲染
+def _resolve_voice(voice):
+    """把 LLM/用户提供的 voice（序号/名字/voice_key）解析成 voice_key。
+    LLM 经常把 voice 填成名字或「音色N」，黄雀后端只认 voice_key。"""
+    if not voice:
+        return ""
+    voice = str(voice).strip()
+    # 已经是 voice_key（S_ 或 vip_ 开头）
+    if voice.startswith(("S_", "vip_")):
+        return voice
+    try:
+        vs = hq.run("voices", {}, confirm=False)
+        v_items = (vs.get("result") or {}).get("items") or []
+    except Exception:
+        return ""
+    if not v_items:
+        return ""
+    # 序号："音色5" / "音色五" / "第5个"
+    CN = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
+    m = re.search(r"音色\s*([一二三四五六七八九十]|\d+)", voice)
+    if m:
+        raw = m.group(1)
+        idx = CN.get(raw) or (int(raw) if raw.isdigit() else None)
+        if idx and 1 <= idx <= len(v_items):
+            return v_items[idx - 1].get("voice_key") or ""
+    # 名字匹配
+    for v in v_items:
+        if voice == v.get("display_name") or voice == v.get("voice_name"):
+            return v.get("voice_key") or ""
+    return ""
+
+
+def _default_voice():
+    """默认音色：第一个可用音色的 voice_key。"""
+    try:
+        vs = hq.run("voices", {}, confirm=False)
+        v_items = (vs.get("result") or {}).get("items") or []
+        if v_items:
+            return v_items[0].get("voice_key") or ""
+    except Exception:
+        pass
+    return ""
+
+
 DISPLAY_TOOLS = {"list_avatars", "list_voices", "list_assets", "list_voice_slots"}
+
 
 # 黄雀主站域名，用于把相对路径的图片/音色 URL 补全
 HQ_SITE = "https://huangquechuanmei.com"
@@ -168,7 +213,7 @@ def run_turn(user_message, history=None, images=None, image_data_urls=None, pend
             p["image_upload_id"] = images[0]
         params["params"] = p
 
-    # 委派 delegate_digital_human 时，自动补默认形象(avatar_id)和默认音色(voice)
+    # 委派 delegate_digital_human 时，自动补默认形象(avatar_id)和规范化音色(voice)
     if tool_name == "delegate_digital_human":
         p = dict(params.get("params") or {})
         if not p.get("avatar_id"):
@@ -180,15 +225,13 @@ def run_turn(user_message, history=None, images=None, image_data_urls=None, pend
                     p["avatar_id"] = ready[0].get("id")
             except Exception:
                 pass
-        if not p.get("voice"):
-            try:
-                vs = hq.run("voices", {}, confirm=False)
-                v_items = (vs.get("result") or {}).get("items") or []
-                if v_items:
-                    p["voice"] = v_items[0].get("voice_key")
-            except Exception:
-                pass
+        # voice 规范化：LLM 可能填名字或「音色N」，解析成 voice_key
+        p["voice"] = _resolve_voice(p.get("voice")) or _default_voice()
         params["params"] = p
+
+    # generate_audio(配音) 的 voice 也规范化（LLM 可能填名字或「音色N」）
+    if tool_name == "generate_audio" and isinstance(params, dict) and params.get("voice"):
+        params["voice"] = _resolve_voice(params["voice"]) or params["voice"]
 
     # 多图拆分：generate_image 的 count>1 时，黄雀引擎2 不支持多图（400），拆成多次单张
     batch_count = 0
