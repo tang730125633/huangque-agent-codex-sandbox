@@ -98,7 +98,7 @@ def _find_prev_voice_text(history):
     return ""
 
 
-DISPLAY_TOOLS = {"list_avatars", "list_voices", "list_assets", "list_voice_slots"}
+DISPLAY_TOOLS = {"list_avatars", "list_voices", "list_assets", "list_voice_slots", "get_account"}
 
 
 # 黄雀主站域名，用于把相对路径的图片/音色 URL 补全

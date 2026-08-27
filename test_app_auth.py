@@ -23,6 +23,9 @@ class AppAuthTest(unittest.TestCase):
         self.assertIn('@media (max-width:600px)', html)
         self.assertIn('async function restoreSession()', html)
         self.assertIn("if (!await restoreSession()) renderWelcome();", html)
+        self.assertIn("async function fetchJson", html)
+        self.assertIn("tool === 'get_account'", html)
+        self.assertIn('class="account-card"', html)
 
 
 if __name__ == "__main__":

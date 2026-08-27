@@ -63,6 +63,26 @@ class OrchestrationTest(unittest.TestCase):
         self.assertTrue(allowed, reason)
         self.assertEqual(decision["params"], {"text": "欢迎来到黄雀"})
 
+    def test_policy_preserves_empty_params_for_read_tools(self):
+        allowed, reason, decision = orchestration.PolicyEngine.production({
+            "type": "tool", "tool": "list_avatars", "params": {},
+        })
+        self.assertTrue(allowed, reason)
+        self.assertEqual(decision["params"], {})
+
+    def test_account_result_stays_structured_for_page_rendering(self):
+        self.install_fake_hq()
+        agent.hq.run = lambda capability, params, confirm=False, quote_token=None: {
+            "result": {"user": {"username": "tester", "points": 99}}
+        } if capability == "account" else self.fail(capability)
+        result = agent.run_turn(
+            "我的个人信息",
+            decision={"type": "tool", "tool": "get_account", "params": {}},
+        )
+        self.assertEqual(result["type"], "display")
+        self.assertEqual(result["tool"], "get_account")
+        self.assertEqual(result["result"]["user"]["points"], 99)
+
     def test_coordinator_delegates_to_independent_production_quote(self):
         calls = self.install_fake_hq()
         coordinator = StubAgent({

@@ -202,7 +202,7 @@ TOOLS: list[Dict[str, Any]] = [
     },
     {
         "name": "get_account",
-        "description": "查看黄雀账号与剩余点数。",
+        "description": "查看本人的黄雀账户资料、会员状态与剩余点数。",
         "capability": "account", "paid": False,
         "parameters": {"type": "object", "properties": {}},
     },
