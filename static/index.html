@@ -417,12 +417,13 @@ function renderDisplay(tool, result) {
     const okItems = items.filter(s => s.status !== 'failed');
     if (!okItems.length) return '还没有克隆成功的音色，点 🎵 上传或 🎙 录一段 10-60 秒的样音克隆一个吧。';
     const nums = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
-    const list = okItems.map((s, i) => {
+    const list = okItems.map(s => {
       const au = s.preview_url || '';
       const audio = au ? `<audio controls preload="none" src="${imgSrc(au)}" style="height:32px;width:220px;vertical-align:middle"></audio>` : '';
       const name = s.voice_name || '（空槽位）';
       const st = s.status === 'ready' ? '<span style="color:#2bd576">✅ 可用</span>' : '<span style="color:#e7b24c">⏳ 训练中</span>';
-      return `<div style="padding:6px 0;border-bottom:1px solid var(--line)">${audio}<div style="margin-top:4px">${nums[i] || (i+1)} 🎙 ${name} ${st}</div></div>`;
+      const idx = s.index || 0;  // 后端返回的全局序号，与「查看音色」一致
+      return `<div style="padding:6px 0;border-bottom:1px solid var(--line)">${audio}<div style="margin-top:4px">${nums[idx-1] || idx || ''} 🎙 ${name} ${st}</div></div>`;
     }).join('');
     return `<div style="font-weight:600;margin-bottom:8px">🔊 声音克隆槽位（${okItems.length}，点击播放试听，可说「用音色N」指定）：</div>${list}`;
   }

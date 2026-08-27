@@ -56,6 +56,20 @@ def _default_voice():
     return ""
 
 
+def _voice_global_index(slot_id, voice_key):
+    """返回音色在完整音色列表(list_voices)里的全局序号(1-based)。
+    用于让「音色槽位」的序号与「查看音色」一致，避免用户说「音色2」时被错解。"""
+    try:
+        vs = hq.run("voices", {}, confirm=False)
+        v_items = (vs.get("result") or {}).get("items") or []
+        for i, v in enumerate(v_items, 1):
+            if v.get("voice_key") == voice_key or (slot_id and v.get("slot_id") == slot_id):
+                return i
+    except Exception:
+        pass
+    return None
+
+
 DISPLAY_TOOLS = {"list_avatars", "list_voices", "list_assets", "list_voice_slots"}
 
 
@@ -321,11 +335,20 @@ def run_turn(user_message, history=None, images=None, image_data_urls=None, pend
             if tool_name in ("list_voices", "list_voice_slots"):
                 items = (rr.get("items") or [])
                 lines = []
-                for i, it in enumerate(items, 1):
+                for it in items:
                     name = it.get("display_name") or it.get("voice_name") or it.get("voice_key") or "未命名"
                     key = it.get("voice_key") or it.get("slot_id") or ""
-                    lines.append(f"{i}. {name}（voice_key:{key}）")
-                assistant = "当前可用音色：\n" + "\n".join(lines) + "\n（用户可说「用音色1/音色2」或直接说音色名来指定）"
+                    if tool_name == "list_voice_slots":
+                        # 音色槽位：序号用全局位置，与「查看音色」一致
+                        idx = _voice_global_index(it.get("slot_id"), key)
+                        it["index"] = idx
+                        label = f"{idx}. {name}" if idx else name
+                    else:
+                        idx = len(lines) + 1
+                        it["index"] = idx
+                        label = f"{idx}. {name}"
+                    lines.append(f"{label}（voice_key:{key}）")
+                assistant = "当前可用音色：\n" + "\n".join(lines) + "\n（用户可说「用音色N」或直接说音色名来指定）"
             return {"type": "display", "tool": tool_name, "result": rr,
                     "assistant_content": assistant}
         summary = llm.summarize(user_message, tool_name, rr, history)
