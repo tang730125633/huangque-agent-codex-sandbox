@@ -204,7 +204,8 @@ voiceFileInput.onchange = () => {
 async function cloneVoiceWithFile(f, label) {
   addMsg('🎤 ' + (label || ('上传样音克隆声音：' + f.name)), 'user');
   const card = addMsg('正在准备… ⏳', 'agent');
-  let slotId = null;
+  const CN = ['一','二','三','四','五','六','七','八','九','十'];
+  let slotId = null, voiceName = '';
   try {
     const slots = await fetch('/voice-slots').then(r=>r.json());
     const items = slots.items || (Array.isArray(slots) ? slots : []);
@@ -213,14 +214,17 @@ async function cloneVoiceWithFile(f, label) {
     // 优先重新克隆失败的槽位（覆盖失败，不碰成功的好音色）
     slotId = failed ? failed.slot_id : (ready ? ready.slot_id : (items.length ? items[0].slot_id : null));
     if (!slotId) { card.innerHTML = '没有可用的音色槽位，请先在网页端开通。'; return; }
+    // 自动命名：按槽位在列表里的顺序 → 音色一、音色二、音色三...
+    const idx = items.findIndex(s => s.slot_id === slotId);
+    voiceName = '音色' + (CN[idx] || (idx + 1));
   } catch(e) { card.innerHTML = '查询音色槽位失败：' + e.message; return; }
-  card.innerHTML = '正在克隆声音（训练中，约 1-2 分钟）… ⏳';
+  card.innerHTML = '正在克隆声音「' + voiceName + '」（训练中，约 1-2 分钟）… ⏳';
   const fd = new FormData();
   fd.append('file', f);
   try {
-    const r = await fetch('/upload/voice?slot_id=' + encodeURIComponent(slotId), { method:'POST', body: fd }).then(r=>r.json());
+    const r = await fetch('/upload/voice?slot_id=' + encodeURIComponent(slotId) + '&name=' + encodeURIComponent(voiceName), { method:'POST', body: fd }).then(r=>r.json());
     if (r.ok) {
-      card.innerHTML = '✅ 声音克隆已提交，正在训练（约 1-2 分钟）… ⏳';
+      card.innerHTML = '✅ 声音克隆「' + voiceName + '」已提交，正在训练（约 1-2 分钟）… ⏳';
       pollCloneStatus(slotId, card);
     } else {
       card.innerHTML = '克隆失败：' + (r.detail || r.message || '未知错误');

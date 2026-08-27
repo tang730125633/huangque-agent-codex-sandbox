@@ -129,7 +129,7 @@ async def upload_avatar(file: UploadFile = File(...)):
 
 
 @app.post("/upload/voice")
-async def upload_voice(slot_id: str, file: UploadFile = File(...)):
+async def upload_voice(slot_id: str, file: UploadFile = File(...), name: str = ""):
     """上传样音克隆声音。任意格式（含录音的 webm/mp4），后端 ffmpeg 转 16k 单声道 wav 后提交 clone-vip。"""
     suffix = os.path.splitext(file.filename or "")[1].lower() or ".webm"
     data = await file.read()
@@ -146,7 +146,7 @@ async def upload_voice(slot_id: str, file: UploadFile = File(...)):
         )
         with open(tmp_out.name, "rb") as f:
             wav_data = f.read()
-        result = web.clone_voice(slot_id, base64.b64encode(wav_data).decode(), "wav")
+        result = web.clone_voice(slot_id, base64.b64encode(wav_data).decode(), "wav", name)
     except subprocess.CalledProcessError as e:
         raise HTTPException(400, "音频转换失败，请确认是有效的音频文件")
     except Exception as e:

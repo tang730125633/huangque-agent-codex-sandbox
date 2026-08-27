@@ -38,10 +38,12 @@ def create_avatar(image_data_url, name=""):
     return _post("/api/gen/avatar", {"image_data": image_data_url, "name": name})
 
 
-def clone_voice(slot_id, audio_base64, audio_format):
+def clone_voice(slot_id, audio_base64, audio_format, name=""):
     """上传样音克隆声音。audio_base64 为纯 base64（不带 data: 前缀）。"""
-    return _post("/api/gen/audio/clone-vip",
-                 {"slot_id": slot_id, "audio": audio_base64, "audio_format": audio_format})
+    body = {"slot_id": slot_id, "audio": audio_base64, "audio_format": audio_format}
+    if name:
+        body["name"] = name
+    return _post("/api/gen/audio/clone-vip", body)
 
 
 def list_avatars():
