@@ -209,7 +209,9 @@ async function cloneVoiceWithFile(f, label) {
     const slots = await fetch('/voice-slots').then(r=>r.json());
     const items = slots.items || (Array.isArray(slots) ? slots : []);
     const ready = items.find(s => s.status === 'ready');
-    slotId = ready ? ready.slot_id : (items.length ? items[0].slot_id : null);
+    const failed = items.find(s => s.status === 'failed');
+    // 优先重新克隆失败的槽位（覆盖失败，不碰成功的好音色）
+    slotId = failed ? failed.slot_id : (ready ? ready.slot_id : (items.length ? items[0].slot_id : null));
     if (!slotId) { card.innerHTML = '没有可用的音色槽位，请先在网页端开通。'; return; }
   } catch(e) { card.innerHTML = '查询音色槽位失败：' + e.message; return; }
   card.innerHTML = '正在克隆声音（训练中，约 1-2 分钟）… ⏳';
@@ -407,15 +409,16 @@ function renderDisplay(tool, result) {
     return `<div style="font-weight:600;margin-bottom:8px">📁 资产（${items.length}）：</div><div>${media || '无'}</div>`;
   }
   if (tool === 'list_voice_slots') {
-    if (!items.length) return '还没有声音克隆槽位。';
-    const list = items.map(s => {
+    const okItems = items.filter(s => s.status !== 'failed');
+    if (!okItems.length) return '还没有克隆成功的音色，点 🎵 上传或 🎙 录一段 10-60 秒的样音克隆一个吧。';
+    const list = okItems.map(s => {
       const au = s.preview_url || '';
       const audio = au ? `<audio controls preload="none" src="${imgSrc(au)}" style="height:32px;width:220px;vertical-align:middle"></audio>` : '';
       const name = s.voice_name || '（空槽位）';
-      const st = s.status === 'ready' ? '<span style="color:#2bd576">✅ 可用</span>' : (s.status === 'training' ? '<span style="color:#e7b24c">⏳ 训练中</span>' : (s.status === 'failed' ? '<span style="color:#f4708a">❌ 失败（样音太短，请重新录 10-60 秒）</span>' : (s.status || '')));
+      const st = s.status === 'ready' ? '<span style="color:#2bd576">✅ 可用</span>' : '<span style="color:#e7b24c">⏳ 训练中</span>';
       return `<div style="padding:6px 0;border-bottom:1px solid var(--line)">${audio}<div style="margin-top:4px">🎙 ${name} ${st}</div></div>`;
     }).join('');
-    return `<div style="font-weight:600;margin-bottom:8px">🔊 声音克隆槽位（${items.length}，点击播放试听）：</div>${list}`;
+    return `<div style="font-weight:600;margin-bottom:8px">🔊 声音克隆槽位（${okItems.length}，点击播放试听）：</div>${list}`;
   }
   return renderResult(result);
 }
