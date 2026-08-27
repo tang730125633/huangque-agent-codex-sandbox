@@ -243,7 +243,13 @@ def run_turn(user_message, history=None, images=None, image_data_urls=None, pend
             except Exception:
                 pass
         # voice 规范化：LLM 可能填名字或「音色N」，解析成 voice_key
-        p["voice"] = _resolve_voice(p.get("voice")) or _default_voice()
+        voice_resolved = _resolve_voice(p.get("voice"))
+        if not voice_resolved:
+            # 兑底：从用户原话里提取「N号音色」或「音色N」
+            m = re.search(r"(\d+)\s*号\s*音色|音色\s*([一二三四五六七八九十\d]+)", user_message or "")
+            if m:
+                voice_resolved = _resolve_voice("音色" + (m.group(1) or m.group(2)))
+        p["voice"] = voice_resolved or _default_voice()
         params["params"] = p
 
     # generate_audio(配音) 的 voice 也规范化（LLM 可能填名字或「音色N」）
