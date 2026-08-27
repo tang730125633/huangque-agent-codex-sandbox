@@ -211,7 +211,7 @@ def proxy_image(url: str):
     """代理黄雀图片：后端下载后返回，绕过浏览器代理拦截图片域名的问题。"""
     import requests as _rq
     # 只允许黄雀的图片域名，防 SSRF
-    if not url.startswith(("https://video.huangquechuanmei.com/", "https://huangque-media-")):
+    if not url.startswith(("https://video.huangquechuanmei.com/", "https://huangque-media-", "https://huangquechuanmei.com/")):
         raise HTTPException(400, "不支持的图片域名")
     try:
         resp = _rq.get(url, timeout=30)

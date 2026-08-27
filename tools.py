@@ -243,4 +243,13 @@ def call_tool(tool: dict, params: dict, confirm: bool = False, quote_token: str 
             p.get("intent", "数字人口播"), p.get("params", {}),
             confirm, quote_token or "")
         return {"result": result.model_dump(), "_specialist": True}
+    if tool.get("capability") == "video-avatars":
+        res = hq.run(tool["capability"], params, confirm=confirm, quote_token=quote_token)
+        # 数字人形象 image_url 是相对路径（/api/gen/file/...），拼成完整 URL 供前端显示
+        items = (res.get("result") or {}).get("items") or []
+        for it in items:
+            iu = it.get("image_url")
+            if isinstance(iu, str) and iu.startswith("/"):
+                it["image_url"] = "https://huangquechuanmei.com" + iu
+        return res
     return hq.run(tool["capability"], params, confirm=confirm, quote_token=quote_token)

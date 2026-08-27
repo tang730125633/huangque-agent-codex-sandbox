@@ -312,8 +312,12 @@ function renderDisplay(tool, result) {
     return `<div style="font-weight:600;margin-bottom:8px">👤 你的数字人形象（${items.length}）：</div><div style="display:flex;flex-wrap:wrap;gap:10px">${cards}</div>`;
   }
   if (tool === 'list_voices') {
-    const list = items.map(v => `<div style="padding:4px 0">🎙 ${v.display_name || v.name || v.voice_key || ''}</div>`).join('');
-    return `<div style="font-weight:600;margin-bottom:8px">🎤 可用音色（${items.length}）：</div>${list || '无'}`;
+    const list = items.map(v => {
+      const au = v.preview_url || (v.preview_file ? 'https://video.huangquechuanmei.com/huangque/' + v.preview_file : '');
+      const audio = au ? `<audio controls preload="none" src="${imgSrc(au)}" style="height:32px;width:200px;vertical-align:middle"></audio>` : '';
+      return `<div style="padding:4px 0">${audio} 🎙 ${v.display_name || v.name || v.voice_key || ''}</div>`;
+    }).join('');
+    return `<div style="font-weight:600;margin-bottom:8px">🎤 可用音色（${items.length}，点击播放试听）：</div>${list || '无'}`;
   }
   if (tool === 'list_assets') {
     const imgs = items.filter(i => i.url).slice(0, 20).map(i => `<img src="${imgSrc(i.url)}" style="max-width:120px;border-radius:8px;margin:4px">`).join('');
@@ -328,7 +332,12 @@ function renderResult(result) {
   const tk = localStorage.getItem('access_token') || '';
   const imgSrc = u => `/proxy-image?url=${encodeURIComponent(u)}&token=${tk}`;
   const parts = [];
-  if (result.url) parts.push(`<img class="result-img" src="${imgSrc(result.url)}">`);
+  const isAudio = result.type === 'audio' || (result.url && /\.(mp3|wav|m4a|aac|ogg)$/i.test(result.url));
+  if (result.url && isAudio) {
+    parts.push(`<div style="font-size:13px;color:var(--muted);margin-bottom:4px">🔊 生成音频：</div><audio controls src="${imgSrc(result.url)}" style="width:100%"></audio>`);
+  } else if (result.url) {
+    parts.push(`<img class="result-img" src="${imgSrc(result.url)}">`);
+  }
   if (result.urls) result.urls.forEach(u => parts.push(`<img class="result-img" src="${imgSrc(u)}">`));
   if (result.video_url) parts.push(`<video class="result-img" controls src="${result.video_url}"></video>`);
   if (result.points !== undefined) parts.push(`<div>剩余点数：<b>${result.points}</b></div>`);
@@ -370,7 +379,7 @@ async function pollBatch(jobs, card) {
   if (urls.length && sessionId) {
     fetch('/session/note', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({session_id: sessionId, content: `图片生成完成，URL：${urls.join(' , ')}`})});
   }
-  if (urls.length) autoDescribe(urls[0], card);
+  if (urls.length && !/\.(mp3|wav|m4a|aac|ogg)$/i.test(urls[0])) autoDescribe(urls[0], card);
 }
 
 async function pollTask(jobId, card, retried = false) {
@@ -383,10 +392,11 @@ async function pollTask(jobId, card, retried = false) {
     if (t.status === 'done') {
       card.innerHTML = renderResult(t.result || {}) || '完成啦！';
       const u = t.result && (t.result.url || (t.result.urls && t.result.urls[0]));
+      const isAudio = u && /\.(mp3|wav|m4a|aac|ogg)$/i.test(u);
       if (u && sessionId) {
-        fetch('/session/note', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({session_id: sessionId, content: `任务 ${jobId} 完成，图片 URL：${u}`})});
+        fetch('/session/note', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({session_id: sessionId, content: `任务 ${jobId} 完成，${isAudio?'音频':'图片'} URL：${u}`})});
       }
-      if (u) autoDescribe(u, card);
+      if (u && !isAudio) autoDescribe(u, card);
       return;
     }
     if (t.status === 'error') {

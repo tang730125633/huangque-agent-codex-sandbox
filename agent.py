@@ -56,14 +56,18 @@ def _approve_and_run(pending_quote, history=None):
     tool = tools.get_tool(pending_quote.get("tool", ""))
     if not tool:
         return {"type": "error", "message": "未知委派工具", "assistant_content": "出错"}
-    # 渠道自动路由：用「下一个渠道」提交（第一次=seedream，之后轮转 xiaole→banana→openai）
-    next_p = _next_provider(pending_quote)
+    # 渠道自动路由：仅图片委派工具(delegate_image)注入 provider
     params = dict(pending_quote.get("params", {}))
-    inner = dict((params.get("params") or {}))
-    inner["provider"] = next_p
-    params["params"] = inner
+    next_p = None
+    if tool.get("capability") == "__delegate_image__":
+        next_p = _next_provider(pending_quote)
+        inner = dict((params.get("params") or {}))
+        inner["provider"] = next_p
+        params["params"] = inner
+    # 普通付费工具用 pending_quote 里的 quote_token；图片委派工具传空（内部重新报价）
+    quote_token = "" if tool.get("capability") == "__delegate_image__" else pending_quote.get("quote_token", "")
     res = tools.call_tool(tool, params,
-                          confirm=True, quote_token="")
+                          confirm=True, quote_token=quote_token)
     result = {}
     if res.get("_specialist"):
         sr = res["result"]
@@ -83,12 +87,22 @@ def _approve_and_run(pending_quote, history=None):
         elif status == "failed":
             result = {"type": "error", "message": sr.get("summary", "失败"),
                       "assistant_content": sr.get("summary", "失败")}
+    else:
+        # 普通付费工具（如 generate_audio）：confirm=True 后返回 job_id（异步）或 url（同步）
+        rr = res.get("result") or {}
+        if rr.get("job_id"):
+            result = {"type": "running", "job_id": str(rr["job_id"]), "summary": "已提交",
+                      "assistant_content": f"已提交任务 {rr['job_id']}，正在生成。"}
+        elif rr.get("url") or rr.get("urls"):
+            result = {"type": "result", "tool": tool["name"], "result": rr,
+                      "assistant_content": "已完成"}
     if not result:
         msg = res.get("message") or res.get("error") or "执行失败"
         result = {"type": "error", "message": msg, "assistant_content": msg}
-    # 记录本次使用的渠道 + 下一个渠道
-    result["used_provider"] = next_p
-    result["next_provider"] = _provider_after(next_p)
+    # 记录本次使用的渠道 + 下一个渠道（仅图片委派工具）
+    if next_p:
+        result["used_provider"] = next_p
+        result["next_provider"] = _provider_after(next_p)
     return result
 
 
@@ -183,6 +197,8 @@ def run_turn(user_message, history=None, images=None, image_data_urls=None, pend
                     "cost": cost,
                     "points": rr.get("points"),
                     "quote_token": rr["quote_token"],
+                    "pending_quote": {"tool": tool_name, "params": params,
+                                     "quote_token": rr["quote_token"]},
                     "explanation": explanation,
                     "assistant_content": assistant,
                 }
