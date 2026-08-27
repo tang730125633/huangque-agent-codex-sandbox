@@ -89,8 +89,10 @@ def _find_prev_voice_text(history):
         content = (h.get("content") or "").strip()
         if not content or len(content) < 4:
             continue
-        # 跳过纯音色选择类消息
-        if re.search(r"^(用|音色|第|换|确认|开始|ok|yes)", content, re.I):
+        # 只跳过明确的音色控制/确认短句；不能误伤“换季肌肤……”这类真实文案。
+        if (_extract_voice_number(content) is not None or
+                re.search(r"^(?:换(?:个|一个|成)?(?:音色|声音)|确认(?:执行)?|开始|ok|yes)",
+                          content, re.I)):
             continue
         return content
     return ""
