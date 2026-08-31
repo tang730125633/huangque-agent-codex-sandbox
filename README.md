@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/readme/hero-zel-v1.webp" width="100%" alt="Zel and the orange cat coordinating specialist agents inside an isolated test enclosure">
+</p>
+
 # 黄雀 Agent（独立服务）
 
 一个**独立、可部署**的黄雀内容生产 Agent 服务。大脑用 DeepSeek / GLM 理解自然语言需求并路由到黄雀能力，执行层调 `hq` CLI（报价 → 确认 → 轮询）。不依赖 OpenClaw，可本机跑、可上服务器、可加网页前端。
